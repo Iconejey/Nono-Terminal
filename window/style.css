@@ -1,5 +1,74 @@
-* {
+@import url('https://fonts.cdnfonts.com/css/consolas');
+
+:root {
+	--white: #ffffff;
+	--black: #000000;
+	--black-soft: #131313;
+	--charcoal-dark: #191919;
+	--charcoal: #1f1f1f;
+	--charcoal-light: #242424;
+	--gray-dark: #474747;
+	--gray: #666666;
+	--gray-light: #c6c6c6;
+	--off-white: #e5e5e5;
+	--blue-soft: #82aaff;
+	--blue: #3b8eea;
+	--blue-light: #abdcfd;
+	--green: #c3e88d;
+	--red: #f07178;
+	--yellow: #ffcb6b;
+	--purple: #c792ea;
+	--olive-dark: #3e4534;
+	--green-pale: #c5d7aa;
+	--yellow-pale: #e3c999;
+	--pink-pale: #db9c9f;
+	--blue-pale: #a4b8e3;
+}
+
+body {
+	background-color: rgba(25, 25, 25, 0.94);
+	color: var(--gray-light);
+	font-family: 'Consolas', monospace;
 	margin: 0;
-	padding: 0;
-	box-sizing: border-box;
+	justify-content: end;
+}
+
+terminal-chat {
+	display: flex;
+	flex-direction: column;
+
+	& chat-block {
+		padding: 0.5rem 1.25rem;
+
+		&:hover {
+			background-color: color-mix(in srgb, var(--charcoal-light) 50%, transparent);
+		}
+
+		& pre {
+			white-space: pre-wrap;
+			font-family: 'Consolas', monospace;
+			margin: 0;
+		}
+
+		&[from='user'] pre.input::before {
+			content: '> ';
+			color: var(--green);
+		}
+
+		&[from='assistant'] pre.input {
+			&::before {
+				content: '• ';
+				color: var(--purple);
+			}
+
+			&.msg {
+				/* Mix purple with white */
+				color: var(--purple);
+
+				&::before {
+					content: '✦ ';
+				}
+			}
+		}
+	}
 }

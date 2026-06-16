@@ -7,6 +7,101 @@
 		<script src="window.js" defer></script>
 	</head>
 	<body>
-		<h1>Hello, World!</h1>
+		<terminal-chat>
+			<chat-block from="user">
+				<pre class="input">cd dev</pre>
+			</chat-block>
+
+			<chat-block from="user">
+				<pre class="input">ls -a</pre>
+				<pre class="output">.  ..  AetherShips  arch-hypr  Nono-CLI  Nono-Terminal  Sportsee  test.md</pre>
+			</chat-block>
+
+			<chat-block from="user">
+				<pre class="input">Hi</pre>
+			</chat-block>
+
+			<chat-block from="assistant">
+				<pre class="input msg">Hello! How can I help you today?</pre>
+			</chat-block>
+
+			<chat-block from="user">
+				<pre class="input">Clone and run my rubiks cube project</pre>
+			</chat-block>
+
+			<chat-block from="assistant">
+				<pre class="input">git config --global user.name</pre>
+				<pre class="output">Iconejey</pre>
+			</chat-block>
+
+			<chat-block from="assistant">
+				<pre class="input msg">I see your GitHub username is  Iconejey . I'll search GitHub for your Rubik's Cube project repository under this username.</pre>
+			</chat-block>
+
+			<chat-block from="assistant">
+				<pre class="input">curl -s https://api.github.com/users/Iconejey/repos\?per_page\=100 | grep -i full_name</pre>
+				<pre class="output">
+    "full_name": "Iconejey/AetherShips",
+    "full_name": "Iconejey/arch-hypr",
+    "full_name": "Iconejey/iconejey",
+    "full_name": "Iconejey/iconejey.github.io",
+    "full_name": "Iconejey/Nored",
+    "full_name": "Iconejey/Noservice",
+    "full_name": "Iconejey/rubiks-cube",</pre
+				>
+			</chat-block>
+
+			<chat-block from="assistant">
+				<pre class="input msg">I found the repository: Iconejey/rubiks-cube. I will now clone it into your workspace at /home/nicolas/dev/rubiks-cube.</pre>
+			</chat-block>
+
+			<chat-block from="assistant">
+				<pre class="input">git clone git@github.com:Iconejey/rubiks-cube.git</pre>
+				<pre class="output">
+remote: Compressing objects: 100% (57/57), done.
+Receiving objects: 100% (89/89), 23.92 KiB | 272.00 KiB/s, done.
+Resolving deltas: 100% (51/51), done.</pre
+				>
+			</chat-block>
+
+			<chat-block from="assistant">
+				<pre class="input msg">I will list the contents of the cloned rubiks-cube repository to see the project structure and determine how to run it.</pre>
+			</chat-block>
+
+			<chat-block from="assistant">
+				<pre class="input">ls rubiks-cube</pre>
+				<pre class="output">node_modules  package.json  package-lock.json  public  server.js</pre>
+			</chat-block>
+
+			<chat-block from="assistant">
+				<pre class="input">Read package.json (0-17)</pre>
+			</chat-block>
+
+			<chat-block from="assistant">
+				<pre class="input">Read server.js (0-6)</pre>
+			</chat-block>
+
+			<chat-block from="assistant">
+				<pre class="input msg">I will now install the project's dependencies.</pre>
+			</chat-block>
+
+			<chat-block from="assistant">
+				<pre class="input">npm install</pre>
+				<pre class="output">added 66 packages, and audited 67 packages in 644ms</pre>
+			</chat-block>
+
+			<chat-block from="assistant">
+				<pre class="input msg">The project is ready to run !</pre>
+			</chat-block>
+
+			<chat-block from="assistant">
+				<pre class="input">npm start</pre>
+				<pre class="output">Server is running on http://localhost:8029</pre>
+			</chat-block>
+
+			<chat-block from="user">
+				<pre class="input" contenteditable="true"></pre>
+			</chat-block>
+		</terminal-chat>
 	</body>
 </html>
