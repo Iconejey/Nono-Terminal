@@ -128,6 +128,16 @@ To allow spawning multiple independent terminal windows inside a single running 
 - **Primary Instance listener:** The primary instance listens for the `second-instance` event. When triggered, it receives the CLI arguments and target working directory of the new run, and spawns a new window starting in that directory.
 - **Isolated Session Map:** The main process maps IPC interactions to the active window using `event.sender.id`, maintaining completely isolated terminal shells, working directories, and OpenAI chat histories for each window.
 
+### 8. Interactive Slash Commands Autocomplete Box
+
+To provide tab-completion and keyboard navigation for available slash commands directly in the input area:
+
+- **Command Registry:** We define an array of supported command objects `slashCommands = [{ name, description, callback }]` (e.g. `/exit`, `/clear`, `/model`...).
+- **Suggestions:** If the user types something that starts with `/`, we will display matching command names and descriptions, highlighting the best match in chat blocks under the input line.
+- **Navigation & Autocomplete:**
+    - `ArrowUp` / `ArrowDown`: If the suggestion overlay is open, these keys navigate the matches instead of cycling shell history.
+    - `Enter`: If the suggestion overlay is open, pressing Enter immediately auto-completes the input field with the highlighted command name and executes its callback.
+
 ---
 
 ## Step-by-Step Implementation Roadmap
@@ -140,6 +150,7 @@ To allow spawning multiple independent terminal windows inside a single running 
 - Setup the persistent bash shell in `main.js` and implement the line-buffer stdout/stderr parser.
 - Configure `window/window.js` to append blocks to `<terminal-chat>` and support arrow-key navigation for command history.
 - Integrate the dynamic input listener inside the renderer to automatically toggle the prompt chevron color between green and purple based on command-type heuristics.
+- Register `slashCommands`, and wire keyboard navigation interceptors for `/` inputs with suggestion lines at the bottom of the terminal.
 
 ### Phase 2: OpenAI SDK Integration & Core Agent Loop
 
@@ -147,6 +158,7 @@ To allow spawning multiple independent terminal windows inside a single running 
 - Setup API key storage. We will support loading `process.env.OPENAI_API_KEY` or saving it locally to `~/.nono-terminal-config.json` via a `/api-key <key>` custom command.
 - Implement the agent loop in `main.js` with the tools list (`execute_command`, `read_file`, `edit_file`, `search_codebase`, `list_directory`).
 - Integrate the Repo Map generator, dynamic system instructions, and error loop checks.
+- Add the `AbortController` timeout wrapper and retry loop around all OpenAI API calls.
 
 ### Phase 3: Agentic UI & Visual Enhancements
 
