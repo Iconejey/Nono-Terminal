@@ -89,7 +89,9 @@ class ShellSession {
 		this.stdout_buffer = '';
 		this.stderr_buffer = '';
 		this.active_command_callback = null;
-		this.model = 'gpt-4o-mini';
+		const config = loadConfig();
+		const active_prov = config.providers[config.current_provider] || {};
+		this.model = active_prov.model || 'gpt-4o-mini';
 		this.messages = [];
 
 		this.shell_proc = spawn('/bin/bash', [], {
