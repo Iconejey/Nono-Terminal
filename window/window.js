@@ -379,6 +379,7 @@ function submitInput(text) {
   Ctrl+Shift+I (Cmd+..) - Toggle Developer Tools
   Ctrl+Shift+D (Cmd+..) - Toggle Style Debug Mode
   Ctrl+H (Cmd+H)        - Cycle collapse modes (Full, Collapsed, Last-Only, User)
+  Ctrl+L (Cmd+L)        - Clear terminal screen history
   Ctrl+C (Cmd+C)        - Interrupt active command execution (when no text selected)
   Arrow Up / Down       - Navigate input command history`;
 
@@ -417,6 +418,11 @@ document.addEventListener('keydown', e => {
 	if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'h') {
 		e.preventDefault();
 		cycleCollapseMode();
+	}
+	// Ctrl+L to clear terminal screen
+	if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'l') {
+		e.preventDefault();
+		submitInput('/clear');
 	}
 	// Ctrl+C to interrupt command execution
 	if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
