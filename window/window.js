@@ -15,7 +15,7 @@ const slash_commands = [
 ];
 
 let selected_suggestion_index = 0;
-let current_collapse_mode = 'full'; // 'full', 'collapsed', 'last'
+let current_collapse_mode = 'full'; // 'full', 'collapsed', 'last', 'user'
 
 let active_output_block = null;
 let active_assistant_block = null;
@@ -70,6 +70,9 @@ function cycleCollapseMode() {
 	} else if (current_collapse_mode === 'collapsed') {
 		current_collapse_mode = 'last';
 		container.className = 'mode-last';
+	} else if (current_collapse_mode === 'last') {
+		current_collapse_mode = 'user';
+		container.className = 'mode-user';
 	} else {
 		current_collapse_mode = 'full';
 		container.className = 'mode-full';
