@@ -841,6 +841,7 @@ ipcMain.on('execute-slash-command', async (event, command_str) => {
 			data.session.messages = [];
 		}
 		// Renderer handles UI clearing
+		event.sender.send('shell-complete', { exit_code: 0, cwd: data.session.current_cwd });
 	} else if (command_name === '/provider' || command_name === '/providers') {
 		const provider_name = args[1];
 		const base_url = args[2];

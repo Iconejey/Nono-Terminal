@@ -343,11 +343,7 @@ function submitInput(text) {
 	if (trimmed.startsWith('/')) {
 		if (trimmed.startsWith('/clear')) {
 			const container = document.getElementById('terminal-chat-container');
-			const active_block = document.getElementById('active-chat-block');
-			// Remove all siblings except active block
-			while (container.firstChild && container.firstChild !== active_block) {
-				container.removeChild(container.firstChild);
-			}
+			container.innerHTML = '';
 			window.api.executeSlashCommand(trimmed);
 			return;
 		} else if (trimmed.startsWith('/help')) {
