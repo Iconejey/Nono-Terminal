@@ -201,7 +201,12 @@ no changes added to commit (use "git add" and/or "git commit -a")</pre>
 4. **Delimiter Tracking**: It appends a delimiter command to capture the exit code and updated working directory.
 5. **Output Streaming**: `stdout` and `stderr` streams are captured and sent in real time back to the UI.</pre>
 			</chat-block>
-			
+
+			<!-- Section 4.5: Assistant Response Waiting State -->
+			<chat-block from="assistant">
+				<pre class="input msg waiting chat-marker"></pre>
+			</chat-block>
+
 			<!-- Section 5: Tool usage and Diffs -->
 			<chat-block from="assistant">
 				<pre class="input chat-marker" data-tool-call-id="debug-tool-1">Editing window/style.css</pre>

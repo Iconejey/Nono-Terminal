@@ -4,6 +4,10 @@ Nono-Terminal is an Electron-based persistent terminal emulator integrated with 
 
 ---
 
+## Todo list
+
+- /context slash command to view the current context window size and contents.
+
 ## Architecture & Technical Stack
 
 Nono-Terminal separates the browser interface from your system using Electron IPC channels:

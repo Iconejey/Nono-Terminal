@@ -96,6 +96,10 @@ terminal-chat {
 				&::before {
 					content: '✦';
 				}
+
+				&:not(.waiting):empty {
+					display: none !important;
+				}
 			}
 		}
 	}
@@ -303,4 +307,25 @@ details.thinking-details {
 }
 .diff-context {
 	color: var(--gray);
+}
+
+/* Waiting state style and animation */
+.waiting {
+	color: var(--gray) !important;
+}
+
+.waiting::before {
+	color: var(--gray) !important;
+	display: inline-flex;
+	animation: spin 2s linear infinite;
+	transform-origin: center;
+}
+
+@keyframes spin {
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
 }
