@@ -1,44 +1,59 @@
 <!doctype html>
 <html lang="en">
-	<head>
-		<meta charset="UTF-8" />
-		<title>Nono-Terminal</title>
-		<link rel="stylesheet" href="style.css" />
-		<script src="prism.js" defer></script>
-		<script src="codejar.js" defer></script>
-		<script src="window.js" defer></script>
-	</head>
-	<body>
-		<terminal-chat class="mode-full" id="terminal-chat-container">
-			<!-- Dynamically appended chat history will go here -->
-			
-			<chat-block from="user" id="active-chat-block">
-				<pre class="input chat-marker" contenteditable="true" id="active-input" spellcheck="false"></pre>
-				<div class="slash-suggestions" id="slash-suggestions"></div>
-			</chat-block>
-		</terminal-chat>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Nono-Terminal</title>
+    <link rel="stylesheet" href="style.css" />
+    <script src="prism.js" defer></script>
+    <script src="codejar.js" defer></script>
+    <script src="marked.min.js" defer></script>
+    <script src="window.js" defer></script>
+  </head>
+  <body>
+    <terminal-chat class="mode-full" id="terminal-chat-container">
+      <!-- Dynamically appended chat history will go here -->
 
-		<!-- Code Editor Overlay -->
-		<div id="editor-overlay" class="editor-overlay">
-			<div class="editor-header">
-				<div class="editor-title-area">
-					<span class="material-symbols-outlined editor-icon">edit_note</span>
-					<span id="editor-file-path" class="editor-file-path">file.txt</span>
-				</div>
-				<div class="editor-actions">
-					<button id="editor-btn-save" class="btn-editor btn-save">
-						<span class="material-symbols-outlined" style="font-size: 1.2em;">save</span> Save
-					</button>
-					<button id="editor-btn-close" class="btn-editor btn-close">
-						<span class="material-symbols-outlined" style="font-size: 1.2em;">close</span> Close
-					</button>
-				</div>
-			</div>
-			<div class="editor-body">
-				<div id="editor-line-numbers" class="editor-line-numbers">1</div>
-				<div id="editor-code" class="editor-code language-javascript" spellcheck="false"></div>
-			</div>
-		</div>
-	</body>
+      <chat-block from="user" id="active-chat-block">
+        <pre
+          class="input chat-marker"
+          contenteditable="true"
+          id="active-input"
+          spellcheck="false"
+        ></pre>
+        <div class="slash-suggestions" id="slash-suggestions"></div>
+      </chat-block>
+    </terminal-chat>
+
+    <!-- Code Editor Overlay -->
+    <div id="editor-overlay" class="editor-overlay">
+      <div class="editor-header">
+        <div class="editor-title-area">
+          <span class="material-symbols-outlined editor-icon">edit_note</span>
+          <span id="editor-file-path" class="editor-file-path">file.txt</span>
+        </div>
+        <div class="editor-actions">
+          <button id="editor-btn-save" class="btn-editor btn-save">
+            <span class="material-symbols-outlined" style="font-size: 1.2em"
+              >save</span
+            >
+            Save
+          </button>
+          <button id="editor-btn-close" class="btn-editor btn-close">
+            <span class="material-symbols-outlined" style="font-size: 1.2em"
+              >close</span
+            >
+            Close
+          </button>
+        </div>
+      </div>
+      <div class="editor-body">
+        <div id="editor-line-numbers" class="editor-line-numbers">1</div>
+        <div
+          id="editor-code"
+          class="editor-code language-javascript"
+          spellcheck="false"
+        ></div>
+      </div>
+    </div>
+  </body>
 </html>
-

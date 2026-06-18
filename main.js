@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, shell } = require('electron');
 const { spawn, exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -160,7 +160,10 @@ class ShellSession {
 					}
 				}
 			} else {
-				this.web_contents.send('shell-output', { text: line + '\n', is_stderr });
+				this.web_contents.send('shell-output', {
+					text: line + '\n',
+					is_stderr
+				});
 			}
 		}
 	}
@@ -244,10 +247,14 @@ function editFile(file_path, search_content, replace_content) {
 		const content = fs.readFileSync(file_path, 'utf8');
 		const occurrences = content.split(search_content).length - 1;
 		if (occurrences === 0) {
-			return { error: 'Search content not found in the file. Make sure the search content matches exactly.' };
+			return {
+				error: 'Search content not found in the file. Make sure the search content matches exactly.'
+			};
 		}
 		if (occurrences > 1) {
-			return { error: 'Search content is not unique. Found ' + occurrences + ' occurrences. Please provide a more specific search block.' };
+			return {
+				error: 'Search content is not unique. Found ' + occurrences + ' occurrences. Please provide a more specific search block.'
+			};
 		}
 		const updated_content = content.replace(search_content, replace_content);
 		fs.writeFileSync(file_path, updated_content, 'utf8');
@@ -484,7 +491,10 @@ const tools_definition = [
 			parameters: {
 				type: 'object',
 				properties: {
-					command: { type: 'string', description: 'The shell command to execute.' }
+					command: {
+						type: 'string',
+						description: 'The shell command to execute.'
+					}
 				},
 				required: ['command']
 			}
@@ -498,9 +508,18 @@ const tools_definition = [
 			parameters: {
 				type: 'object',
 				properties: {
-					path: { type: 'string', description: 'The absolute or relative path to the file.' },
-					start_line: { type: 'integer', description: 'The 1-indexed line number to start reading from (inclusive).' },
-					end_line: { type: 'integer', description: 'The 1-indexed line number to stop reading at (inclusive).' }
+					path: {
+						type: 'string',
+						description: 'The absolute or relative path to the file.'
+					},
+					start_line: {
+						type: 'integer',
+						description: 'The 1-indexed line number to start reading from (inclusive).'
+					},
+					end_line: {
+						type: 'integer',
+						description: 'The 1-indexed line number to stop reading at (inclusive).'
+					}
 				},
 				required: ['path']
 			}
@@ -514,9 +533,18 @@ const tools_definition = [
 			parameters: {
 				type: 'object',
 				properties: {
-					path: { type: 'string', description: 'The absolute or relative path to the file.' },
-					search_content: { type: 'string', description: 'The exact lines/block of code to be replaced.' },
-					replace_content: { type: 'string', description: 'The new lines/block of code to replace the search content with.' }
+					path: {
+						type: 'string',
+						description: 'The absolute or relative path to the file.'
+					},
+					search_content: {
+						type: 'string',
+						description: 'The exact lines/block of code to be replaced.'
+					},
+					replace_content: {
+						type: 'string',
+						description: 'The new lines/block of code to replace the search content with.'
+					}
 				},
 				required: ['path', 'search_content', 'replace_content']
 			}
@@ -530,7 +558,10 @@ const tools_definition = [
 			parameters: {
 				type: 'object',
 				properties: {
-					query: { type: 'string', description: 'The string pattern to search for in files.' }
+					query: {
+						type: 'string',
+						description: 'The string pattern to search for in files.'
+					}
 				},
 				required: ['query']
 			}
@@ -544,7 +575,10 @@ const tools_definition = [
 			parameters: {
 				type: 'object',
 				properties: {
-					path: { type: 'string', description: 'The absolute or relative path to the directory.' }
+					path: {
+						type: 'string',
+						description: 'The absolute or relative path to the directory.'
+					}
 				},
 				required: ['path']
 			}
@@ -586,7 +620,10 @@ async function runAgentLoop(session, prompt, usePro) {
 		while (loop_count < max_loops) {
 			loop_count++;
 
-			const system_msg = { role: 'system', content: getSystemPrompt(session.current_cwd) };
+			const system_msg = {
+				role: 'system',
+				content: getSystemPrompt(session.current_cwd)
+			};
 			if (session.messages.length > 0 && session.messages[0].role === 'system') {
 				session.messages[0] = system_msg;
 			} else {
@@ -623,7 +660,11 @@ async function runAgentLoop(session, prompt, usePro) {
 				const name = tool_call.function.name;
 				const args = JSON.parse(tool_call.function.arguments);
 
-				web_contents.send('agent-tool-start', { name, args, tool_call_id: tool_call.id });
+				web_contents.send('agent-tool-start', {
+					name,
+					args,
+					tool_call_id: tool_call.id
+				});
 
 				let tool_result;
 				let is_error = false;
@@ -653,7 +694,10 @@ async function runAgentLoop(session, prompt, usePro) {
 							tool_result = JSON.stringify(res);
 						} else {
 							const diff = computeLineDiff(args.search_content.split('\n'), args.replace_content.split('\n'));
-							web_contents.send('agent-tool-output', { tool_call_id: tool_call.id, text: diff });
+							web_contents.send('agent-tool-output', {
+								tool_call_id: tool_call.id,
+								text: diff
+							});
 							tool_result = JSON.stringify(res);
 						}
 					} else if (name === 'search_codebase') {
@@ -674,7 +718,10 @@ async function runAgentLoop(session, prompt, usePro) {
 					is_error = true;
 				}
 
-				web_contents.send('agent-tool-complete', { tool_call_id: tool_call.id, result: tool_result });
+				web_contents.send('agent-tool-complete', {
+					tool_call_id: tool_call.id,
+					result: tool_result
+				});
 
 				if (is_error) {
 					consecutive_errors++;
@@ -731,6 +778,21 @@ function createWindow(initial_cwd) {
 	});
 
 	win.removeMenu();
+
+	// Open external links in the default browser instead of the Electron window
+	win.webContents.on('will-navigate', (event, url) => {
+		if (url !== win.webContents.getURL() && (url.startsWith('http://') || url.startsWith('https://'))) {
+			event.preventDefault();
+			shell.openExternal(url);
+		}
+	});
+
+	win.webContents.setWindowOpenHandler(({ url }) => {
+		if (url.startsWith('http://') || url.startsWith('https://')) {
+			shell.openExternal(url);
+		}
+		return { action: 'deny' };
+	});
 
 	win.webContents.on('before-input-event', (event, input) => {
 		if (input.type !== 'keyDown') return;
@@ -839,19 +901,28 @@ ipcMain.on('execute-slash-command', async (event, command_str) => {
 			data.session.messages = [];
 		}
 		// Renderer handles UI clearing
-		event.sender.send('shell-complete', { exit_code: 0, cwd: data.session.current_cwd });
+		event.sender.send('shell-complete', {
+			exit_code: 0,
+			cwd: data.session.current_cwd
+		});
 	} else if (['/provider', '/providers', '/model', '/models', '/api-key'].includes(command_name)) {
 		event.sender.send('shell-output', {
 			text: `Slash command ${command_name} is deprecated. Configuration is now managed via config.json.\n`,
 			is_stderr: true
 		});
-		event.sender.send('shell-complete', { exit_code: 1, cwd: data.session.current_cwd });
+		event.sender.send('shell-complete', {
+			exit_code: 1,
+			cwd: data.session.current_cwd
+		});
 	} else {
 		event.sender.send('shell-output', {
 			text: `Unknown slash command: ${command_name}\n`,
 			is_stderr: true
 		});
-		event.sender.send('shell-complete', { exit_code: 1, cwd: data.session.current_cwd });
+		event.sender.send('shell-complete', {
+			exit_code: 1,
+			cwd: data.session.current_cwd
+		});
 	}
 });
 
