@@ -879,8 +879,24 @@ ipcMain.handle('save-file-content', async (event, file_path, content) => {
 	const base = data ? data.session.current_cwd : process.cwd();
 	const resolved = path.resolve(base, file_path);
 	try {
-		fs.writeFileSync(resolved, content, 'utf8');
-		return { resolved, success: true };
+		let formattedContent = content;
+		let formatted = false;
+		try {
+			const prettier = require('prettier');
+			const fileInfo = await prettier.getFileInfo(resolved);
+			if (fileInfo && !fileInfo.ignored && fileInfo.inferredParser) {
+				const config = await prettier.resolveConfig(resolved);
+				formattedContent = await prettier.format(content, {
+					...config,
+					parser: fileInfo.inferredParser
+				});
+				formatted = true;
+			}
+		} catch (prettierErr) {
+			console.error('Prettier formatting failed:', prettierErr);
+		}
+		fs.writeFileSync(resolved, formattedContent, 'utf8');
+		return { resolved, success: true, formatted, formattedContent };
 	} catch (err) {
 		return { resolved, error: err.message, code: err.code };
 	}

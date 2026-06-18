@@ -6,6 +6,7 @@
 		"start": "electron ."
 	},
 	"dependencies": {
-		"openai": "^6.43.0"
+		"openai": "^6.43.0",
+		"prettier": "^3.8.4"
 	}
 }

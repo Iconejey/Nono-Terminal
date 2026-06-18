@@ -921,6 +921,20 @@ async function saveEditorContent() {
 			saveBtn.innerHTML = originalText;
 		}, 2000);
 	} else {
+		if (result.formatted && result.formattedContent) {
+			if (jar) {
+				const pos = jar.save();
+				jar.updateCode(result.formattedContent);
+				try {
+					jar.restore(pos);
+				} catch (restoreErr) {
+					console.warn('Failed to restore caret position:', restoreErr);
+				}
+			} else {
+				editorCode.textContent = result.formattedContent;
+			}
+			updateEditorLineNumbers(result.formattedContent);
+		}
 		saveBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size: 1.2em;">done</span> Saved';
 		saveBtn.style.background = 'var(--green)';
 		saveBtn.style.color = 'var(--black)';
