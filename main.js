@@ -195,7 +195,7 @@ function listDirectory(dir_path) {
 			};
 		});
 	} catch (err) {
-		return { error: err.message };
+		return { error: err.message, code: err.code };
 	}
 }
 
@@ -852,3 +852,39 @@ ipcMain.on('toggle-debug-mode', event => {
 		toggleDebugMode(data.win);
 	}
 });
+
+ipcMain.handle('read-dir', async (event, dir_path) => {
+	const data = active_windows.get(event.sender.id);
+	const base = data ? data.session.current_cwd : process.cwd();
+	const resolved = path.resolve(base, dir_path || '.');
+	const res = listDirectory(resolved);
+	if (res.error) {
+		return { resolved, error: res.error, code: res.code };
+	}
+	return { resolved, items: res };
+});
+
+ipcMain.handle('read-file-content', async (event, file_path) => {
+	const data = active_windows.get(event.sender.id);
+	const base = data ? data.session.current_cwd : process.cwd();
+	const resolved = path.resolve(base, file_path);
+	try {
+		const content = fs.readFileSync(resolved, 'utf8');
+		return { resolved, content };
+	} catch (err) {
+		return { resolved, error: err.message, code: err.code };
+	}
+});
+
+ipcMain.handle('save-file-content', async (event, file_path, content) => {
+	const data = active_windows.get(event.sender.id);
+	const base = data ? data.session.current_cwd : process.cwd();
+	const resolved = path.resolve(base, file_path);
+	try {
+		fs.writeFileSync(resolved, content, 'utf8');
+		return { resolved, success: true };
+	} catch (err) {
+		return { resolved, error: err.message, code: err.code };
+	}
+});
+

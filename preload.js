@@ -16,5 +16,9 @@ contextBridge.exposeInMainWorld('api', {
   executeSlashCommand: (command) => ipcRenderer.send('execute-slash-command', command),
   sendApiKey: (key) => ipcRenderer.send('send-api-key', key),
   toggleDebugMode: () => ipcRenderer.send('toggle-debug-mode'),
-  requestState: () => ipcRenderer.send('request-state')
+  requestState: () => ipcRenderer.send('request-state'),
+  readDir: (dirPath) => ipcRenderer.invoke('read-dir', dirPath),
+  readFileContent: (filePath) => ipcRenderer.invoke('read-file-content', filePath),
+  saveFileContent: (filePath, content) => ipcRenderer.invoke('save-file-content', filePath, content)
 });
+

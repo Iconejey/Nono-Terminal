@@ -329,3 +329,222 @@ details.thinking-details {
 		transform: rotate(360deg);
 	}
 }
+
+/* Material Symbols Outlined Custom Class */
+.material-symbols-outlined {
+	font-family: 'Material Symbols Outlined';
+	font-weight: normal;
+	font-style: normal;
+	font-size: 1.25rem;
+	line-height: 1;
+	letter-spacing: normal;
+	text-transform: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	white-space: nowrap;
+	word-wrap: normal;
+	direction: ltr;
+	-webkit-font-smoothing: antialiased;
+}
+
+/* Code Editor Overlay styling */
+.editor-overlay {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: transparent;
+	z-index: 10000;
+	font-size: 17px;
+	display: flex;
+	flex-direction: column;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+	font-family: 'Consolas', monospace;
+}
+
+body.editor-active .editor-overlay {
+	opacity: 1;
+	pointer-events: all;
+}
+
+body.editor-active terminal-chat {
+	display: none !important;
+}
+
+.editor-header {
+	border-bottom: 1px solid color-mix(in srgb, var(--white) 8%, transparent);
+	padding: 12px 20px;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	user-select: none;
+}
+
+.editor-title-area {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	overflow: hidden;
+	margin-right: 15px;
+}
+
+.editor-icon {
+	color: var(--purple);
+}
+
+.editor-file-path {
+	color: var(--off-white);
+	font-weight: bold;
+	font-size: 0.95em;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.editor-actions {
+	display: flex;
+	gap: 10px;
+	flex-shrink: 0;
+}
+
+.btn-editor {
+	border-radius: 4px;
+	font-weight: bold;
+	font-family: inherit;
+	font-size: 0.85em;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	cursor: pointer;
+	padding: 6px 14px;
+	transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-save {
+	background: var(--purple);
+	color: var(--black);
+	border: none;
+}
+
+.btn-save:hover {
+	filter: brightness(1.1);
+	transform: translateY(-1px);
+	box-shadow: 0 0 12px color-mix(in srgb, var(--purple) 50%, transparent);
+}
+
+.btn-close {
+	background: color-mix(in srgb, var(--white) 5%, transparent);
+	border: 1px solid color-mix(in srgb, var(--white) 10%, transparent);
+	color: var(--gray-light);
+}
+
+.btn-close:hover {
+	background: color-mix(in srgb, var(--white) 12%, transparent);
+	color: var(--white);
+	transform: translateY(-1px);
+}
+
+.editor-body {
+	display: flex;
+	flex: 1;
+	overflow: hidden;
+	position: relative;
+	background: color-mix(in srgb, var(--black-soft) 30%, transparent);
+}
+
+.editor-line-numbers {
+	width: 55px;
+	border-right: 1px solid color-mix(in srgb, var(--white) 5%, transparent);
+	color: var(--gray);
+	text-align: right;
+	padding: 15px 12px 15px 0;
+	font-size: inherit;
+	line-height: 1.5;
+	user-select: none;
+	box-sizing: border-box;
+	overflow: hidden;
+	white-space: pre;
+}
+
+.editor-code {
+	flex: 1;
+	background: transparent;
+	border: none;
+	outline: none;
+	color: var(--off-white);
+	font-family: 'Consolas', monospace;
+	font-size: inherit;
+	line-height: 1.5;
+	padding: 15px;
+	overflow: auto;
+	box-sizing: border-box;
+	tab-size: 4;
+	-moz-tab-size: 4;
+	caret-color: var(--purple);
+	white-space: pre;
+	word-wrap: normal;
+}
+
+
+
+/* Prism Syntax Highlighting Styles */
+.editor-code .token.comment,
+.editor-code .token.prolog,
+.editor-code .token.doctype,
+.editor-code .token.cdata {
+	color: var(--gray);
+	font-style: italic;
+}
+.editor-code .token.punctuation {
+	color: var(--gray-light);
+}
+.editor-code .token.namespace {
+	opacity: 0.7;
+}
+.editor-code .token.property,
+.editor-code .token.tag,
+.editor-code .token.boolean,
+.editor-code .token.number,
+.editor-code .token.constant,
+.editor-code .token.symbol,
+.editor-code .token.deleted {
+	color: var(--red);
+}
+.editor-code .token.selector,
+.editor-code .token.attr-name,
+.editor-code .token.string,
+.editor-code .token.char,
+.editor-code .token.builtin,
+.editor-code .token.inserted {
+	color: var(--green);
+}
+.editor-code .token.operator,
+.editor-code .token.entity,
+.editor-code .token.url {
+	color: var(--off-white);
+}
+.editor-code .token.atrule,
+.editor-code .token.attr-value,
+.editor-code .token.keyword {
+	color: var(--purple);
+}
+.editor-code .token.function,
+.editor-code .token.class-name {
+	color: var(--blue-soft);
+}
+.editor-code .token.regex,
+.editor-code .token.important,
+.editor-code .token.variable {
+	color: var(--yellow);
+}
+.editor-code .token.important,
+.editor-code .token.bold {
+	font-weight: bold;
+}
+.editor-code .token.italic {
+	font-style: italic;
+}
