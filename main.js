@@ -27,8 +27,9 @@ function loadConfig() {
 	const config_path = path.join(__dirname, 'config.json');
 
 	let config = {
-		flash: { provider: 'gemini', api_key: '', model: 'gemini-2.5-flash' },
-		pro: { provider: 'openai', api_key: '', model: 'gpt-4o' }
+		api_key: '',
+		flash_model: 'gemini-3.5-flash',
+		pro_model: 'gemini-3.1-pro-preview'
 	};
 
 	try {
@@ -43,8 +44,7 @@ function loadConfig() {
 	try {
 		if (fs.existsSync(config_path)) {
 			const overrides = JSON.parse(fs.readFileSync(config_path, 'utf8'));
-			config.flash = { ...config.flash, ...overrides.flash };
-			config.pro = { ...config.pro, ...overrides.pro };
+			config = { ...config, ...overrides };
 		}
 	} catch (err) {
 		console.error('Error loading config.json:', err.message);
@@ -55,7 +55,7 @@ function loadConfig() {
 
 function getApiKey() {
 	const config = loadConfig();
-	return config.flash?.api_key || config.pro?.api_key || '';
+	return config.api_key || '';
 }
 
 let cached_commands = null;
@@ -108,7 +108,7 @@ class ShellSession {
 		this.stderr_buffer = '';
 		this.active_command_callback = null;
 		const config = loadConfig();
-		this.model = config.flash?.model || 'gemini-2.5-flash';
+		this.model = config.flash_model || 'gemini-3.5-flash';
 		this.messages = [];
 
 		this.shell_proc = spawn('/bin/bash', [], {
@@ -534,12 +534,11 @@ const tools_definition = [
 async function runAgentLoop(session, prompt, usePro) {
 	const web_contents = session.web_contents;
 	const config = loadConfig();
-	const config_tier = usePro ? config.pro : config.flash;
-	const tier_name = usePro ? 'pro' : 'flash';
+	const model_name = usePro ? config.pro_model : config.flash_model;
 
-	if (!config_tier || !config_tier.api_key) {
+	if (!config.api_key) {
 		web_contents.send('agent-chunk', {
-			text: `Error: API Key is not configured for the '${tier_name}' tier in config.json / default_config.json.`
+			text: `Error: API Key is not configured in config.json / default_config.json.`
 		});
 		web_contents.send('agent-complete');
 		return;
@@ -556,8 +555,8 @@ async function runAgentLoop(session, prompt, usePro) {
 
 	try {
 		const openai = new OpenAI({
-			apiKey: config_tier.api_key,
-			baseURL: getProviderBaseUrl(config_tier.provider)
+			apiKey: config.api_key,
+			baseURL: getProviderBaseUrl('gemini')
 		});
 		let loop_count = 0;
 		const max_loops = 15;
@@ -577,7 +576,7 @@ async function runAgentLoop(session, prompt, usePro) {
 			const response = await callOpenAiWithRetry(signal =>
 				openai.chat.completions.create(
 					{
-						model: config_tier.model,
+						model: model_name,
 						messages: session.messages,
 						tools: tools_definition
 					},
