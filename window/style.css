@@ -51,9 +51,9 @@ terminal-chat {
 		display: flex;
 		flex-direction: column;
 
-		&:hover {
+		/* &:hover {
 			background-color: color-mix(in srgb, var(--charcoal-light) 50%, transparent);
-		}
+		} */
 
 		& pre {
 			white-space: pre-wrap;
@@ -185,13 +185,17 @@ terminal-chat {
 					font-family: 'Consolas', monospace;
 				}
 				& pre {
-					background-color: var(--charcoal);
+					background-color: color-mix(in srgb, var(--black-soft) 20%, transparent);
 					border: 1px solid color-mix(in srgb, var(--white) 5%, transparent);
-					border-radius: 4px;
+					border-radius: 8px;
 					padding: 8px 12px;
 					margin: 8px 0;
 					overflow-x: auto;
 					white-space: pre;
+
+					&::-webkit-scrollbar {
+						display: none !important;
+					}
 				}
 				& :not(pre) > code {
 					font-size: 0.9em;
