@@ -14,6 +14,10 @@ const slash_commands = [
   { name: "/code", description: "Open file in VS Code" },
   { name: "/exit", description: "Close current window" },
   { name: "/help", description: "Show list of available commands" },
+  {
+    name: "/mobile",
+    description: "Share the current terminal UI with a mobile device via QR code",
+  },
   { name: "/open", description: "Open a file in the inline editor" },
   {
     name: "/shortcuts",
@@ -448,6 +452,7 @@ function submitInput(text, usePro = false) {
   /code [path]    - Open file in VS Code
   /exit           - Close current window
   /help           - Print this help message
+  /mobile         - Share the current terminal UI with a mobile device via QR code
   /open [path]    - Open a file in the inline editor
   /shortcuts      - List available keyboard shortcuts with descriptions
   /test-md        - Simulate AI responding with markdown-debug-example.md content`;
@@ -548,6 +553,13 @@ function submitInput(text, usePro = false) {
 
 // Global hotkeys
 document.addEventListener("keydown", (e) => {
+  if (document.body.classList.contains("mobile-active")) {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      closeMobileModal();
+      return;
+    }
+  }
   if (active_editor_file_path) {
     if (e.key === "Escape") {
       e.preventDefault();
@@ -680,6 +692,11 @@ window.addEventListener("DOMContentLoaded", () => {
     closeBtn.addEventListener("click", closeEditor);
   }
 
+  const mobileCloseBtn = document.getElementById("mobile-btn-close");
+  if (mobileCloseBtn) {
+    mobileCloseBtn.addEventListener("click", closeMobileModal);
+  }
+
   // Request initial state on load/reload to restore session variables
   window.api.requestState();
 });
@@ -693,6 +710,82 @@ window.api.onWindowInit((info) => {
   }
   current_cwd = info.cwd || "";
   workspace_root = info.cwd || "";
+
+  if (info.historyHtml) {
+    const container = document.getElementById("terminal-chat-container");
+    const active_block = document.getElementById("active-chat-block");
+    if (container && active_block) {
+      // Remove any existing history elements to avoid duplicates
+      const children = Array.from(container.children);
+      children.forEach(child => {
+        if (child.id !== "active-chat-block") {
+          child.remove();
+        }
+      });
+      
+      // Prepend previous history right before the active block
+      active_block.insertAdjacentHTML("beforebegin", info.historyHtml);
+      window.scrollTo(0, document.body.scrollHeight);
+    }
+  }
+});
+
+window.api.onShowQrCode(({ url, qrCodeDataUrl }) => {
+  const img = document.getElementById("qr-image");
+  const link = document.getElementById("qr-url");
+  if (img) img.src = qrCodeDataUrl;
+  if (link) {
+    link.href = url;
+    link.textContent = url;
+  }
+  document.body.classList.add("mobile-active");
+});
+
+function closeMobileModal() {
+  document.body.classList.remove("mobile-active");
+}
+
+window.api.onShellCommandStart(({ command }) => {
+  const input_elem = document.getElementById("active-input");
+  if (input_elem && input_elem.hasAttribute("contenteditable")) {
+    input_elem.textContent = command;
+    input_elem.removeAttribute("contenteditable");
+    input_elem.classList.remove("ai-prompt");
+
+    const active_block = document.getElementById("active-chat-block");
+    active_output_block = document.createElement("pre");
+    active_output_block.className = "output";
+    active_block.appendChild(active_output_block);
+
+    hideSuggestions();
+  }
+});
+
+window.api.onAgentPromptStart(({ prompt, usePro }) => {
+  const input_elem = document.getElementById("active-input");
+  if (input_elem && input_elem.hasAttribute("contenteditable")) {
+    input_elem.textContent = prompt;
+    input_elem.removeAttribute("contenteditable");
+    input_elem.classList.add("ai-prompt");
+
+    const container = document.getElementById("terminal-chat-container");
+
+    active_assistant_block = document.createElement("chat-block");
+    active_assistant_block.setAttribute("from", "assistant");
+
+    active_message_content = document.createElement("div");
+    active_message_content.className = "input msg waiting chat-marker";
+
+    active_assistant_block.appendChild(active_message_content);
+    container.appendChild(active_assistant_block);
+
+    active_assistant_text = "";
+    active_thinking_details = null;
+    active_thinking_content = null;
+
+    window.scrollTo(0, document.body.scrollHeight);
+    hideSuggestions();
+  }
 });
 
 window.api.onShellOutput((data) => {

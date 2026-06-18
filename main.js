@@ -4,8 +4,311 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 const { OpenAI } = require("openai");
+const express = require("express");
+const http = require("http");
+const socketIo = require("socket.io");
+const QRCode = require("qrcode");
 
 const active_windows = new Map();
+let web_server = null;
+let io_server = null;
+let server_port = 0;
+
+function getLocalIpAddress() {
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      if ((iface.family === "IPv4" || iface.family === 4) && !iface.internal) {
+        return iface.address;
+      }
+    }
+  }
+  return "127.0.0.1";
+}
+
+function sendToWindow(windowId, eventName, ...args) {
+  const data = active_windows.get(windowId);
+  if (data && data.win && !data.win.webContents.isDestroyed()) {
+    data.win.webContents.send(eventName, ...args);
+  }
+  if (io_server) {
+    io_server.to(`window_${windowId}`).emit(eventName, ...args);
+  }
+}
+
+function startMobileServer() {
+  if (web_server) {
+    return Promise.resolve(server_port);
+  }
+  
+  const expressApp = express();
+  const httpServer = http.createServer(expressApp);
+  io_server = socketIo(httpServer);
+  
+  expressApp.use(express.static(path.join(__dirname, "window")));
+  
+  io_server.on("connection", (socket) => {
+    let joinedRoom = null;
+    
+    socket.on("register", async ({ windowId }) => {
+      if (windowId) {
+        joinedRoom = `window_${windowId}`;
+        socket.join(joinedRoom);
+        console.log(`Socket client joined room: ${joinedRoom}`);
+        
+        const wId = parseInt(windowId, 10);
+        const data = active_windows.get(wId);
+        if (data) {
+          let historyHtml = "";
+          try {
+            historyHtml = await data.win.webContents.executeJavaScript(`
+              (function() {
+                const container = document.getElementById("terminal-chat-container");
+                if (!container) return "";
+                const children = Array.from(container.children);
+                const historyChildren = children.filter(child => child.id !== "active-chat-block");
+                return historyChildren.map(child => child.outerHTML).join("");
+              })()
+            `);
+          } catch (err) {
+            console.error("Failed to retrieve history HTML on register:", err);
+          }
+          socket.emit("window-init", {
+            cwd: data.session.current_cwd,
+            model: data.session.model,
+            apiKeyConfigured: !!getApiKey(),
+            repoMap: generateRepoMap(data.session.current_cwd),
+            availableCommands: getAvailableCommands(),
+            historyHtml: historyHtml,
+          });
+        }
+      }
+    });
+    
+    socket.on("run-user-command", ({ windowId, command }) => {
+      const wId = parseInt(windowId, 10);
+      const data = active_windows.get(wId);
+      if (data) {
+        sendToWindow(wId, "shell-command-start", { command });
+        data.session.writeCommand(command, (info) => {
+          sendToWindow(wId, "shell-complete", info);
+        });
+      }
+    });
+    
+    socket.on("run-agent-prompt", ({ windowId, prompt, usePro }) => {
+      const wId = parseInt(windowId, 10);
+      const data = active_windows.get(wId);
+      if (data) {
+        sendToWindow(wId, "agent-prompt-start", { prompt, usePro });
+        runAgentLoop(data.session, prompt, usePro);
+      }
+    });
+    
+    socket.on("shell-interrupt", ({ windowId }) => {
+      const wId = parseInt(windowId, 10);
+      const data = active_windows.get(wId);
+      if (data) {
+        data.session.interrupt();
+      }
+    });
+    
+    socket.on("execute-slash-command", ({ windowId, command }) => {
+      const wId = parseInt(windowId, 10);
+      executeSlashCommandForWindow(wId, command);
+    });
+    
+    socket.on("request-state", async ({ windowId }) => {
+      const wId = parseInt(windowId, 10);
+      const data = active_windows.get(wId);
+      if (data) {
+        let historyHtml = "";
+        try {
+          historyHtml = await data.win.webContents.executeJavaScript(`
+            (function() {
+              const container = document.getElementById("terminal-chat-container");
+              if (!container) return "";
+              const children = Array.from(container.children);
+              const historyChildren = children.filter(child => child.id !== "active-chat-block");
+              return historyChildren.map(child => child.outerHTML).join("");
+            })()
+          `);
+        } catch (err) {
+          console.error("Failed to retrieve history HTML on request-state:", err);
+        }
+        socket.emit("window-init", {
+          cwd: data.session.current_cwd,
+          model: data.session.model,
+          apiKeyConfigured: !!getApiKey(),
+          repoMap: generateRepoMap(data.session.current_cwd),
+          availableCommands: getAvailableCommands(),
+          historyHtml: historyHtml,
+        });
+      }
+    });
+    
+    socket.on("toggle-debug-mode", ({ windowId }) => {
+      const wId = parseInt(windowId, 10);
+      const data = active_windows.get(wId);
+      if (data) {
+        toggleDebugMode(data.win);
+      }
+    });
+    
+    socket.on("read-dir", ({ windowId, dirPath }, callback) => {
+      const wId = parseInt(windowId, 10);
+      const data = active_windows.get(wId);
+      const base = data ? data.session.current_cwd : process.cwd();
+      const resolved = path.resolve(base, dirPath || ".");
+      const res = listDirectory(resolved);
+      if (res.error) {
+        callback({ resolved, error: res.error, code: res.code });
+      } else {
+        callback({ resolved, items: res });
+      }
+    });
+    
+    socket.on("read-file-content", ({ windowId, filePath }, callback) => {
+      const wId = parseInt(windowId, 10);
+      const data = active_windows.get(wId);
+      const base = data ? data.session.current_cwd : process.cwd();
+      const resolved = path.resolve(base, filePath);
+      try {
+        const content = fs.readFileSync(resolved, "utf8");
+        callback({ resolved, content });
+      } catch (err) {
+        callback({ resolved, error: err.message, code: err.code });
+      }
+    });
+    
+    socket.on("save-file-content", async ({ windowId, filePath, content }, callback) => {
+      const wId = parseInt(windowId, 10);
+      const data = active_windows.get(wId);
+      const base = data ? data.session.current_cwd : process.cwd();
+      const resolved = path.resolve(base, filePath);
+      try {
+        let formattedContent = content;
+        let formatted = false;
+        try {
+          const prettier = require("prettier");
+          const fileInfo = await prettier.getFileInfo(resolved);
+          if (fileInfo && !fileInfo.ignored && fileInfo.inferredParser) {
+            const vscodeConfig = getVsCodePrettierConfig();
+            const projectConfig = await prettier.resolveConfig(resolved);
+            formattedContent = await prettier.format(content, {
+              ...vscodeConfig,
+              ...projectConfig,
+              parser: fileInfo.inferredParser,
+            });
+            formatted = true;
+          }
+        } catch (prettierErr) {
+          console.error("Prettier formatting failed:", prettierErr);
+        }
+        fs.writeFileSync(resolved, formattedContent, "utf8");
+        callback({ resolved, success: true, formatted, formattedContent });
+      } catch (err) {
+        callback({ resolved, error: err.message, code: err.code });
+      }
+    });
+    
+    socket.on("open-in-vs-code", ({ windowId, filePath }, callback) => {
+      const wId = parseInt(windowId, 10);
+      const data = active_windows.get(wId);
+      const base = data ? data.session.current_cwd : process.cwd();
+      const resolved = path.resolve(base, filePath);
+      exec(`code "${resolved}"`, (err) => {
+        if (err) callback({ error: err.message });
+        else callback({ success: true });
+      });
+    });
+    
+    socket.on("disconnect", () => {
+      console.log("Socket client disconnected");
+    });
+  });
+  
+  return new Promise((resolve) => {
+    httpServer.listen(0, "0.0.0.0", () => {
+      server_port = httpServer.address().port;
+      web_server = httpServer;
+      console.log(`Mobile Express/Socket.io server started on port ${server_port}`);
+      resolve(server_port);
+    });
+  });
+}
+
+async function executeSlashCommandForWindow(windowId, command_str) {
+  const data = active_windows.get(windowId);
+  if (!data) return;
+
+  const clean_str = command_str.replace(/\xa0/g, " ").trim();
+  const args = clean_str.split(/\s+/);
+  const command_name = args[0];
+
+  if (command_name === "/exit") {
+    data.win.close();
+  } else if (command_name === "/clear") {
+    if (data.session.messages) {
+      data.session.messages = [];
+    }
+    sendToWindow(windowId, "shell-complete", {
+      exit_code: 0,
+      cwd: data.session.current_cwd,
+    });
+  } else if (
+    ["/provider", "/providers", "/model", "/models", "/api-key"].includes(
+      command_name,
+    )
+  ) {
+    sendToWindow(windowId, "shell-output", {
+      text: `Slash command ${command_name} is deprecated. Configuration is now managed via config.json.\n`,
+      is_stderr: true,
+    });
+    sendToWindow(windowId, "shell-complete", {
+      exit_code: 1,
+      cwd: data.session.current_cwd,
+    });
+  } else if (command_name === "/mobile") {
+    try {
+      const port = await startMobileServer();
+      const ip = getLocalIpAddress();
+      const url = `http://${ip}:${port}/?windowId=${windowId}`;
+      const qrCodeDataUrl = await QRCode.toDataURL(url, { margin: 0, width: 512 });
+      
+      // Send the QR code back to the Electron window
+      sendToWindow(windowId, "show-qrcode", { url, qrCodeDataUrl });
+      
+      // Print a message to the shell output
+      sendToWindow(windowId, "shell-output", {
+        text: `Mobile connection server running at: ${url}\n`,
+        is_stderr: false,
+      });
+      sendToWindow(windowId, "shell-complete", {
+        exit_code: 0,
+        cwd: data.session.current_cwd,
+      });
+    } catch (err) {
+      sendToWindow(windowId, "shell-output", {
+        text: `Failed to start mobile server: ${err.message}\n`,
+        is_stderr: true,
+      });
+      sendToWindow(windowId, "shell-complete", {
+        exit_code: 1,
+        cwd: data.session.current_cwd,
+      });
+    }
+  } else {
+    sendToWindow(windowId, "shell-output", {
+      text: `Unknown slash command: ${command_name}\n`,
+      is_stderr: true,
+    });
+    sendToWindow(windowId, "shell-complete", {
+      exit_code: 1,
+      cwd: data.session.current_cwd,
+    });
+  }
+}
 
 function getProviderBaseUrl(provider) {
   if (!provider) return undefined;
@@ -127,6 +430,7 @@ function getAvailableCommands() {
 class ShellSession {
   constructor(web_contents, initial_cwd) {
     this.web_contents = web_contents;
+    this.webContentsId = web_contents.id;
     this.current_cwd = initial_cwd || process.cwd();
     this.stdout_buffer = "";
     this.stderr_buffer = "";
@@ -169,7 +473,7 @@ class ShellSession {
       if (delim_index !== -1) {
         const prefix = line.substring(0, delim_index);
         if (prefix) {
-          this.web_contents.send("shell-output", { text: prefix, is_stderr });
+          sendToWindow(this.webContentsId, "shell-output", { text: prefix, is_stderr });
         }
         const suffix = line.substring(delim_index);
         const match = suffix.match(/__NONO_CMD_END__ (\d+) (.*)/);
@@ -184,7 +488,7 @@ class ShellSession {
           }
         }
       } else {
-        this.web_contents.send("shell-output", {
+        sendToWindow(this.webContentsId, "shell-output", {
           text: line + "\n",
           is_stderr,
         });
@@ -660,7 +964,9 @@ const tools_definition = [
 
 // Agent execution loop
 async function runAgentLoop(session, prompt, usePro) {
-  const web_contents = session.web_contents;
+  const web_contents = {
+    send: (channel, ...args) => sendToWindow(session.webContentsId, channel, ...args)
+  };
   const config = loadConfig();
   const model_name = usePro ? config.pro_model : config.flash_model;
 
@@ -969,8 +1275,9 @@ app.on("window-all-closed", () => {
 ipcMain.on("run-user-command", (event, command) => {
   const data = active_windows.get(event.sender.id);
   if (data) {
+    sendToWindow(event.sender.id, "shell-command-start", { command });
     data.session.writeCommand(command, (info) => {
-      event.sender.send("shell-complete", info);
+      sendToWindow(event.sender.id, "shell-complete", info);
     });
   }
 });
@@ -978,6 +1285,7 @@ ipcMain.on("run-user-command", (event, command) => {
 ipcMain.on("run-agent-prompt", (event, prompt, usePro) => {
   const data = active_windows.get(event.sender.id);
   if (data) {
+    sendToWindow(event.sender.id, "agent-prompt-start", { prompt, usePro });
     runAgentLoop(data.session, prompt, usePro);
   }
 });
@@ -990,53 +1298,13 @@ ipcMain.on("shell-interrupt", (event) => {
 });
 
 ipcMain.on("execute-slash-command", async (event, command_str) => {
-  const data = active_windows.get(event.sender.id);
-  if (!data) return;
-
-  const clean_str = command_str.replace(/\xa0/g, " ").trim();
-  const args = clean_str.split(/\s+/);
-  const command_name = args[0];
-
-  if (command_name === "/exit") {
-    data.win.close();
-  } else if (command_name === "/clear") {
-    if (data.session.messages) {
-      data.session.messages = [];
-    }
-    // Renderer handles UI clearing
-    event.sender.send("shell-complete", {
-      exit_code: 0,
-      cwd: data.session.current_cwd,
-    });
-  } else if (
-    ["/provider", "/providers", "/model", "/models", "/api-key"].includes(
-      command_name,
-    )
-  ) {
-    event.sender.send("shell-output", {
-      text: `Slash command ${command_name} is deprecated. Configuration is now managed via config.json.\n`,
-      is_stderr: true,
-    });
-    event.sender.send("shell-complete", {
-      exit_code: 1,
-      cwd: data.session.current_cwd,
-    });
-  } else {
-    event.sender.send("shell-output", {
-      text: `Unknown slash command: ${command_name}\n`,
-      is_stderr: true,
-    });
-    event.sender.send("shell-complete", {
-      exit_code: 1,
-      cwd: data.session.current_cwd,
-    });
-  }
+  executeSlashCommandForWindow(event.sender.id, command_str);
 });
 
 ipcMain.on("request-state", (event) => {
   const data = active_windows.get(event.sender.id);
   if (data) {
-    event.sender.send("window-init", {
+    sendToWindow(event.sender.id, "window-init", {
       cwd: data.session.current_cwd,
       model: data.session.model,
       apiKeyConfigured: !!getApiKey(),

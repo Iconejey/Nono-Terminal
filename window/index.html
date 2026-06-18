@@ -2,8 +2,64 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#191919" />
     <title>Nono-Terminal</title>
     <link rel="stylesheet" href="style.css" />
+    <script>
+      (function() {
+        if (!window.api) {
+          // Set up a promise that resolves when socket is connected
+          let socketResolve;
+          const socketPromise = new Promise(resolve => { socketResolve = resolve; });
+          
+          window.api = {
+            sendUserCommand: (command) => socketPromise.then(socket => socket.emit('run-user-command', { windowId: window.api.windowId, command })),
+            sendAgentPrompt: (prompt, usePro) => socketPromise.then(socket => socket.emit('run-agent-prompt', { windowId: window.api.windowId, prompt, usePro })),
+            sendInterrupt: () => socketPromise.then(socket => socket.emit('shell-interrupt', { windowId: window.api.windowId })),
+            onShellOutput: (callback) => socketPromise.then(socket => socket.on('shell-output', callback)),
+            onShellComplete: (callback) => socketPromise.then(socket => socket.on('shell-complete', callback)),
+            onAgentChunk: (callback) => socketPromise.then(socket => socket.on('agent-chunk', callback)),
+            onAgentComplete: (callback) => socketPromise.then(socket => socket.on('agent-complete', callback)),
+            onAgentToolStart: (callback) => socketPromise.then(socket => socket.on('agent-tool-start', callback)),
+            onAgentToolOutput: (callback) => socketPromise.then(socket => socket.on('agent-tool-output', callback)),
+            onAgentToolComplete: (callback) => socketPromise.then(socket => socket.on('agent-tool-complete', callback)),
+            onAgentStatus: (callback) => socketPromise.then(socket => socket.on('agent-status', callback)),
+            onWindowInit: (callback) => socketPromise.then(socket => socket.on('window-init', callback)),
+            onShowQrCode: (callback) => socketPromise.then(socket => socket.on('show-qrcode', callback)),
+            onShellCommandStart: (callback) => socketPromise.then(socket => socket.on('shell-command-start', callback)),
+            onAgentPromptStart: (callback) => socketPromise.then(socket => socket.on('agent-prompt-start', callback)),
+            executeSlashCommand: (command) => socketPromise.then(socket => socket.emit('execute-slash-command', { windowId: window.api.windowId, command })),
+            sendApiKey: (key) => socketPromise.then(socket => socket.emit('send-api-key', { windowId: window.api.windowId, key })),
+            toggleDebugMode: () => socketPromise.then(socket => socket.emit('toggle-debug-mode', { windowId: window.api.windowId })),
+            requestState: () => socketPromise.then(socket => socket.emit('request-state', { windowId: window.api.windowId })),
+            readDir: (dirPath) => socketPromise.then(socket => new Promise((resolve) => {
+              socket.emit('read-dir', { windowId: window.api.windowId, dirPath }, resolve);
+            })),
+            readFileContent: (filePath) => socketPromise.then(socket => new Promise((resolve) => {
+              socket.emit('read-file-content', { windowId: window.api.windowId, filePath }, resolve);
+            })),
+            saveFileContent: (filePath, content) => socketPromise.then(socket => new Promise((resolve) => {
+              socket.emit('save-file-content', { windowId: window.api.windowId, filePath, content }, resolve);
+            })),
+            openInVsCode: (filePath) => socketPromise.then(socket => new Promise((resolve) => {
+              socket.emit('open-in-vs-code', { windowId: window.api.windowId, filePath }, resolve);
+            }))
+          };
+          
+          window.api.windowId = new URLSearchParams(window.location.search).get('windowId');
+          
+          const s = document.createElement('script');
+          s.src = '/socket.io/socket.io.js';
+          s.onload = () => {
+            const socket = io();
+            socket.emit('register', { windowId: window.api.windowId });
+            socketResolve(socket);
+          };
+          document.head.appendChild(s);
+        }
+      })();
+    </script>
     <script src="prism.js" defer></script>
     <script src="codejar.js" defer></script>
     <script src="marked.min.js" defer></script>
@@ -53,6 +109,26 @@
           class="editor-code language-javascript"
           spellcheck="false"
         ></div>
+      </div>
+    </div>
+
+    <!-- Mobile / QR Code Modal -->
+    <div id="mobile-overlay" class="mobile-overlay">
+      <div class="mobile-modal">
+        <div class="mobile-modal-header">
+          <span class="material-symbols-outlined mobile-modal-icon">qr_code_2</span>
+          <span class="mobile-modal-title">Mobile Terminal Connection</span>
+          <button id="mobile-btn-close" class="btn-mobile-close">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+        <div class="mobile-modal-body">
+          <p>Scan this QR code with your mobile device to control this terminal window:</p>
+          <div class="qr-container">
+            <img id="qr-image" src="" alt="QR Code" />
+          </div>
+          <a id="qr-url" href="" target="_blank" class="qr-url">URL</a>
+        </div>
       </div>
     </div>
   </body>
