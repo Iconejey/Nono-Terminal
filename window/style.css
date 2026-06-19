@@ -981,7 +981,6 @@ body.mobile-active .mobile-modal {
 	opacity: 0;
 	pointer-events: none;
 	font-family: 'Consolas', monospace;
-	transition: opacity 0.3s ease;
 }
 
 body.diff-active .diff-overlay {

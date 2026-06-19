@@ -1094,8 +1094,10 @@ async function openEditor(filePath, fromChanges = false) {
 	const lineNumbers = document.getElementById('editor-line-numbers');
 	const pathSpan = document.getElementById('editor-file-path');
 	const overlay = document.getElementById('editor-overlay');
+	const saveBtn = document.getElementById('editor-btn-save');
+	const toggleIcon = document.getElementById('editor-toggle-icon');
+	const toggleText = document.getElementById('editor-toggle-text');
 
-	editor_mode = 'edit';
 	is_dirty = false;
 	is_loading_file = true;
 	opened_from_changes = fromChanges;
@@ -1111,24 +1113,9 @@ async function openEditor(filePath, fromChanges = false) {
 	const toggleLinesBtn = document.getElementById('editor-btn-toggle-lines');
 	if (toggleLinesBtn) toggleLinesBtn.style.opacity = '';
 
-	if (lineNumbers) {
-		lineNumbers.style.fontFamily = '';
-		lineNumbers.style.textAlign = '';
-	}
-
-	const saveBtn = document.getElementById('editor-btn-save');
-	if (saveBtn) saveBtn.style.display = 'none';
-
-	const toggleIcon = document.getElementById('editor-toggle-icon');
-	const toggleText = document.getElementById('editor-toggle-text');
-	if (toggleIcon) toggleIcon.textContent = 'difference';
-	if (toggleText) toggleText.textContent = 'Diff Mode';
-
-	editorCode.setAttribute('contenteditable', 'plaintext-only');
-
 	pathSpan.textContent = 'Loading ' + filePath + '...';
 	if (jar) jar.updateCode('');
-	lineNumbers.textContent = '1';
+	if (lineNumbers) lineNumbers.textContent = '1';
 
 	document.body.classList.add('editor-active');
 
@@ -1156,19 +1143,47 @@ async function openEditor(filePath, fromChanges = false) {
 
 	editor_file_lang = lang;
 
-	editorCode.className = 'editor-code language-' + lang;
-	if (lang === 'markdown') {
-		editorCode.classList.add('editor-wrap');
+	if (fromChanges) {
+		editor_mode = 'diff';
+		editorCode.setAttribute('contenteditable', 'false');
+		editorCode.className = 'editor-code language-diff';
+		if (saveBtn) saveBtn.style.display = 'none';
+		if (toggleIcon) toggleIcon.textContent = 'edit_note';
+		if (toggleText) toggleText.textContent = 'Edit Mode';
+
+		if (lineNumbers) {
+			lineNumbers.style.fontFamily = "'Consolas', monospace";
+			lineNumbers.style.textAlign = 'left';
+		}
+
+		await updateScrollbarDecorations();
 	} else {
-		editorCode.classList.remove('editor-wrap');
+		editor_mode = 'edit';
+		editorCode.setAttribute('contenteditable', 'plaintext-only');
+		editorCode.className = 'editor-code language-' + lang;
+		if (lang === 'markdown') {
+			editorCode.classList.add('editor-wrap');
+		} else {
+			editorCode.classList.remove('editor-wrap');
+		}
+
+		if (saveBtn) saveBtn.style.display = 'none';
+		if (toggleIcon) toggleIcon.textContent = 'difference';
+		if (toggleText) toggleText.textContent = 'Diff Mode';
+
+		if (lineNumbers) {
+			lineNumbers.style.fontFamily = '';
+			lineNumbers.style.textAlign = '';
+		}
+
+		if (jar) {
+			jar.updateCode(result.content);
+		}
+
+		updateEditorLineNumbers(result.content);
+		await updateScrollbarDecorations();
 	}
 
-	if (jar) {
-		jar.updateCode(result.content);
-	}
-
-	updateEditorLineNumbers(result.content);
-	updateScrollbarDecorations();
 	editorCode.focus();
 	is_loading_file = false;
 }
