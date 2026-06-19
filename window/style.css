@@ -24,6 +24,7 @@
 	--yellow-pale: #e3c999;
 	--pink-pale: #db9c9f;
 	--blue-pale: #a4b8e3;
+	--editor-scrollbar-width: 20px;
 }
 
 html {
@@ -619,6 +620,63 @@ body.editor-active terminal-chat {
 	flex-shrink: 0;
 }
 
+.editor-scrollbar-decorations {
+	position: absolute;
+	right: 0;
+	top: 0;
+	bottom: 0;
+	width: var(--editor-scrollbar-width);
+	display: flex;
+	pointer-events: none;
+	z-index: 10;
+}
+
+.decorations-col {
+	flex: 1;
+	height: 100%;
+	position: relative;
+}
+
+.decoration-marker {
+	position: absolute;
+	left: 0;
+	width: 100%;
+	height: 3px;
+}
+
+.decorations-col.modified .decoration-marker {
+	background-color: color-mix(in srgb, var(--blue-soft) 75%, transparent);
+}
+
+.decorations-col.added .decoration-marker {
+	background-color: color-mix(in srgb, var(--green) 75%, transparent);
+}
+
+.decorations-col.deleted .decoration-marker {
+	background-color: color-mix(in srgb, var(--red) 75%, transparent);
+}
+
+.editor-code::-webkit-scrollbar {
+	width: var(--editor-scrollbar-width);
+	height: var(--editor-scrollbar-width);
+}
+
+.editor-code::-webkit-scrollbar-track {
+	background: transparent !important;
+}
+
+.editor-code::-webkit-scrollbar-thumb {
+	background: rgba(255, 255, 255, 0.15);
+	border: 3px solid transparent;
+	background-clip: padding-box;
+}
+
+.editor-code::-webkit-scrollbar-thumb:hover {
+	background: rgba(255, 255, 255, 0.3);
+	border: 3px solid transparent;
+	background-clip: padding-box;
+}
+
 .editor-code {
 	flex: 1;
 	background: transparent;
@@ -668,8 +726,8 @@ body.editor-active terminal-chat {
 	color: var(--red);
 }
 .token.deleted {
-	color: #ff6b6b !important;
-	background-color: rgba(255, 107, 107, 0.15);
+	color: var(--red) !important;
+	background-color: color-mix(in srgb, var(--red) 15%, transparent);
 }
 .token.selector,
 .token.attr-name,
@@ -679,8 +737,8 @@ body.editor-active terminal-chat {
 	color: var(--green);
 }
 .token.inserted {
-	color: #51cf66 !important;
-	background-color: rgba(81, 207, 102, 0.15);
+	color: var(--green) !important;
+	background-color: color-mix(in srgb, var(--green) 15%, transparent);
 }
 .token.coord {
 	color: var(--purple) !important;
@@ -1078,7 +1136,6 @@ body.diff-active terminal-chat {
 	display: none !important;
 }
 
-
 @media (max-width: 768px) {
 	.editor-overlay,
 	.diff-overlay {
@@ -1105,8 +1162,10 @@ body.diff-active terminal-chat {
 		min-width: 35px;
 		padding: 12px 8px;
 	}
+	.editor-scrollbar-decorations {
+		display: none !important;
+	}
 	.editor-code {
 		padding: 12px;
 	}
 }
-

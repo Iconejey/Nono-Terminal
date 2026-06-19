@@ -1159,6 +1159,7 @@ async function openEditor(filePath) {
 	}
 
 	updateEditorLineNumbers(result.content);
+	updateScrollbarDecorations();
 	editorCode.focus();
 	is_loading_file = false;
 }
@@ -1215,6 +1216,7 @@ async function saveEditorContent() {
 		}, 2000);
 	} else {
 		is_dirty = false;
+		updateScrollbarDecorations();
 		if (result.formatted && result.formattedContent) {
 			if (jar) {
 				const pos = jar.save();
@@ -1366,6 +1368,7 @@ async function toggleEditorMode() {
 		}
 
 		lineNumbers.textContent = lineNumbersText.join('\n');
+		updateScrollbarDecorations();
 		lineNumbers.scrollTop = editorCode.scrollTop;
 	} else {
 		// Switch to edit mode
@@ -1404,6 +1407,7 @@ async function toggleEditorMode() {
 		}
 		is_loading_file = false;
 		updateEditorLineNumbers(result.content);
+		updateScrollbarDecorations();
 	}
 }
 
@@ -1625,4 +1629,116 @@ async function loadDiffOverlayContent(container) {
 	}
 	unstagedSection.appendChild(unstagedList);
 	container.appendChild(unstagedSection);
+}
+
+async function updateScrollbarDecorations() {
+	const container = document.getElementById('editor-scrollbar-decorations');
+	if (!container || !active_editor_file_path) return;
+
+	const colModified = container.querySelector('.decorations-col.modified');
+	const colAdded = container.querySelector('.decorations-col.added');
+	const colDeleted = container.querySelector('.decorations-col.deleted');
+
+	if (!colModified || !colAdded || !colDeleted) return;
+
+	// Clear previous markers
+	colModified.innerHTML = '';
+	colAdded.innerHTML = '';
+	colDeleted.innerHTML = '';
+
+	// If in Diff Mode, the file itself is a diff. We can just highlight the lines of the diff directly!
+	if (editor_mode === 'diff') {
+		const editorCode = document.getElementById('editor-code');
+		const lines = editorCode.textContent.split('\n');
+		const totalLines = lines.length;
+		if (totalLines === 0) return;
+
+		for (let i = 0; i < totalLines; i++) {
+			const line = lines[i];
+			let type = null;
+			if (line.startsWith('-')) {
+				type = 'deleted';
+			} else if (line.startsWith('+')) {
+				type = 'added';
+			} else if (line.startsWith('@@')) {
+				type = 'modified';
+			}
+
+			if (type) {
+				const marker = document.createElement('div');
+				marker.className = 'decoration-marker';
+				const pct = (i / totalLines) * 100;
+				marker.style.top = pct.toFixed(2) + '%';
+
+				if (type === 'deleted') colDeleted.appendChild(marker);
+				else if (type === 'added') colAdded.appendChild(marker);
+				else colModified.appendChild(marker);
+			}
+		}
+		return;
+	}
+
+	// In Edit Mode, we fetch the git diff against HEAD to find changes
+	const result = await window.api.readFileDiff(active_editor_file_path);
+	if (result.error || !result.diff) return;
+
+	const editorCode = document.getElementById('editor-code');
+	const currentLines = editorCode.textContent.split('\n');
+	const totalLines = currentLines.length;
+	if (totalLines === 0) return;
+
+	const diffRaw = result.diff;
+	const lines = diffRaw.split('\n');
+
+	const lineAdditions = new Set();
+	const lineDeletions = new Set();
+
+	let lineNew = 1;
+	let hunkStartIndex = -1;
+
+	for (let i = 0; i < lines.length; i++) {
+		if (lines[i].startsWith('@@')) {
+			const match = lines[i].match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+			if (match) {
+				lineNew = parseInt(match[1], 10);
+			}
+			continue;
+		}
+
+		const line = lines[i];
+		if (line.startsWith('-')) {
+			lineDeletions.add(lineNew);
+		} else if (line.startsWith('+')) {
+			lineAdditions.add(lineNew);
+			lineNew++;
+		} else if (line.startsWith(' ') || line.trim() !== '') {
+			lineNew++;
+		}
+	}
+
+	const allPositions = new Set([...lineAdditions, ...lineDeletions]);
+
+	for (const lineNum of allPositions) {
+		let type = null;
+		if (lineAdditions.has(lineNum) && lineDeletions.has(lineNum)) {
+			type = 'modified';
+		} else if (lineAdditions.has(lineNum)) {
+			type = 'added';
+		} else {
+			type = 'deleted';
+		}
+
+		const marker = document.createElement('div');
+		marker.className = 'decoration-marker';
+		const pct = ((lineNum - 1) / totalLines) * 100;
+		marker.style.top = pct.toFixed(2) + '%';
+
+		if (type === 'modified') {
+			colModified.appendChild(marker);
+		} else if (type === 'added') {
+			colAdded.appendChild(marker);
+		} else {
+			colDeleted.appendChild(marker);
+		}
+	}
 }
