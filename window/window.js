@@ -140,8 +140,9 @@ function renderSuggestions(filtered) {
 		if (cmd.isDir) {
 			item.setAttribute('data-is-dir', 'true');
 		}
+		const colorStyle = cmd.gitStatusColor ? `style="color: ${cmd.gitStatusColor} !important;"` : '';
 		item.innerHTML = `
-      <span class="slash-suggestion-name">${cmd.name}</span>
+      <span class="slash-suggestion-name" ${colorStyle}>${cmd.name}</span>
       <span class="slash-suggestion-desc">${cmd.description}</span>
     `;
 		item.addEventListener('click', () => {
@@ -1049,13 +1050,48 @@ async function handleOpenSuggestions(query, commandName) {
 	if (open_command_cache && open_command_cache.items) {
 		const matches = open_command_cache.items.filter(item => item.name.toLowerCase().startsWith(filePrefix.toLowerCase()));
 
+		// Fetch git status to color suggestions
+		const gitStatus = await window.api.readGitStatus();
+		const staged = (gitStatus && gitStatus.staged) || [];
+		const unstaged = (gitStatus && gitStatus.unstaged) || [];
+
 		const suggestions = matches.map(item => {
 			const pathPrefix = lastSlashIndex !== -1 ? query.substring(0, lastSlashIndex + 1) : '';
+			
+			// Resolve absolute path and then relative path for git status matching
+			const itemAbsPath = open_command_cache.resolved + '/' + item.name;
+			let relPath = itemAbsPath;
+			if (workspace_root) {
+				if (relPath.startsWith(workspace_root)) {
+					relPath = relPath.substring(workspace_root.length);
+				}
+				if (relPath.startsWith('/')) {
+					relPath = relPath.substring(1);
+				}
+			}
+
+			// Determine git status color
+			let gitStatusColor = 'var(--white)'; // default to white
+			
+			// Look up in staged and unstaged changes
+			const isStaged = staged.find(f => f.path === relPath);
+			const isUnstaged = unstaged.find(f => f.path === relPath);
+			const fileStatus = isStaged || isUnstaged;
+
+			if (fileStatus) {
+				if (fileStatus.type === 'addition') {
+					gitStatusColor = 'var(--green)';
+				} else {
+					gitStatusColor = 'var(--blue-soft)';
+				}
+			}
+
 			return {
 				name: pathPrefix + item.name,
 				description: item.is_directory ? 'Directory' : formatBytes(item.size),
 				isDir: item.is_directory,
-				cmdPrefix: commandName
+				cmdPrefix: commandName,
+				gitStatusColor: gitStatusColor
 			};
 		});
 

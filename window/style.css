@@ -25,6 +25,7 @@
 	--pink-pale: #db9c9f;
 	--blue-pale: #a4b8e3;
 	--editor-scrollbar-width: 20px;
+	--gutter-padding-x: 12px;
 }
 
 html {
@@ -610,7 +611,7 @@ body.editor-active terminal-chat {
 	border-right: 1px solid color-mix(in srgb, var(--white) 5%, transparent);
 	color: var(--gray);
 	text-align: right;
-	padding: 15px 12px;
+	padding: 15px var(--gutter-padding-x);
 	font-size: inherit;
 	line-height: 1.5;
 	user-select: none;
@@ -630,7 +631,7 @@ body.editor-active terminal-chat {
 	position: absolute;
 	top: 0;
 	bottom: 0;
-	right: -12px;
+	right: calc(-1 * var(--gutter-padding-x));
 	width: 2px;
 	background-color: var(--green);
 	z-index: 5;
@@ -641,7 +642,7 @@ body.editor-active terminal-chat {
 	position: absolute;
 	top: 0;
 	bottom: 0;
-	right: -12px;
+	right: calc(-1 * var(--gutter-padding-x));
 	width: 2px;
 	background-color: var(--blue-soft);
 	z-index: 5;
@@ -652,7 +653,7 @@ body.editor-active terminal-chat {
 	position: absolute;
 	top: 0;
 	bottom: 0;
-	right: -12px;
+	right: calc(-1 * var(--gutter-padding-x));
 	width: 2px;
 	background-color: var(--red);
 	z-index: 5;
@@ -666,8 +667,8 @@ body.editor-active terminal-chat {
 	content: "";
 	position: absolute;
 	top: 0;
-	left: -12px;
-	right: -12px;
+	left: calc(-1 * var(--gutter-padding-x));
+	right: calc(-1 * var(--gutter-padding-x));
 	height: 2px;
 	background-color: var(--red);
 	z-index: 5;
@@ -677,8 +678,8 @@ body.editor-active terminal-chat {
 	content: "";
 	position: absolute;
 	bottom: 0;
-	left: -12px;
-	right: -12px;
+	left: calc(-1 * var(--gutter-padding-x));
+	right: calc(-1 * var(--gutter-padding-x));
 	height: 2px;
 	background-color: var(--red);
 	z-index: 5;
@@ -1223,10 +1224,8 @@ body.diff-active terminal-chat {
 	}
 	.editor-line-numbers {
 		min-width: 35px;
-		padding: 12px 8px;
-	}
-	.editor-scrollbar-decorations {
-		display: none !important;
+		--gutter-padding-x: 8px;
+		padding: 12px var(--gutter-padding-x);
 	}
 	.editor-code {
 		padding: 12px;
