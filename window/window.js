@@ -11,6 +11,7 @@ let jar = null;
 let editor_mode = 'edit';
 let editor_file_lang = 'clike';
 let is_dirty = false;
+let is_loading_file = false;
 
 // Register custom diff language for Prism if not present
 if (window.Prism && !window.Prism.languages.diff) {
@@ -695,8 +696,10 @@ window.addEventListener('DOMContentLoaded', () => {
 		// Update line numbers on edits
 		jar.onUpdate(code => {
 			updateEditorLineNumbers(code);
-			if (editor_mode === 'edit') {
+			if (editor_mode === 'edit' && !is_loading_file) {
 				is_dirty = true;
+				const saveBtn = document.getElementById('editor-btn-save');
+				if (saveBtn) saveBtn.style.display = '';
 			}
 		});
 	}
@@ -1088,6 +1091,7 @@ async function openEditor(filePath) {
 
 	editor_mode = 'edit';
 	is_dirty = false;
+	is_loading_file = true;
 
 	if (lineNumbers) {
 		lineNumbers.style.fontFamily = '';
@@ -1095,7 +1099,7 @@ async function openEditor(filePath) {
 	}
 
 	const saveBtn = document.getElementById('editor-btn-save');
-	if (saveBtn) saveBtn.style.display = '';
+	if (saveBtn) saveBtn.style.display = 'none';
 
 	const toggleIcon = document.getElementById('editor-toggle-icon');
 	const toggleText = document.getElementById('editor-toggle-text');
@@ -1114,6 +1118,7 @@ async function openEditor(filePath) {
 	if (result.error) {
 		pathSpan.textContent = 'Error: ' + result.error;
 		if (jar) jar.updateCode('Failed to load file content:\n' + result.error);
+		is_loading_file = false;
 		return;
 	}
 
@@ -1146,6 +1151,7 @@ async function openEditor(filePath) {
 
 	updateEditorLineNumbers(result.content);
 	editorCode.focus();
+	is_loading_file = false;
 }
 
 function updateEditorLineNumbers(code) {
@@ -1221,6 +1227,7 @@ async function saveEditorContent() {
 			saveBtn.innerHTML = originalText;
 			saveBtn.style.background = '';
 			saveBtn.style.color = '';
+			saveBtn.style.display = 'none';
 		}, 1500);
 	}
 }
@@ -1371,7 +1378,7 @@ async function toggleEditorMode() {
 			editorCode.classList.remove('editor-wrap');
 		}
 
-		saveBtn.style.display = '';
+		saveBtn.style.display = 'none';
 		toggleIcon.textContent = 'difference';
 		toggleText.textContent = 'Diff Mode';
 
@@ -1380,11 +1387,13 @@ async function toggleEditorMode() {
 		lineNumbers.style.fontFamily = '';
 		lineNumbers.style.textAlign = '';
 
+		is_loading_file = true;
 		if (jar) {
 			jar.updateCode(result.content);
 		} else {
 			editorCode.textContent = result.content;
 		}
+		is_loading_file = false;
 		updateEditorLineNumbers(result.content);
 	}
 }
