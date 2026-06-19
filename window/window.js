@@ -1098,6 +1098,13 @@ async function openEditor(filePath) {
 	is_dirty = false;
 	is_loading_file = true;
 
+	window.editorDiffState = {
+		added: new Set(),
+		modified: new Set(),
+		deletedBefore: new Set(),
+		deletedAfter: new Set()
+	};
+
 	if (overlay) overlay.classList.remove('lines-hidden');
 	const toggleLinesBtn = document.getElementById('editor-btn-toggle-lines');
 	if (toggleLinesBtn) toggleLinesBtn.style.opacity = '';
@@ -1169,16 +1176,42 @@ function updateEditorLineNumbers(code) {
 	const lineNumbers = document.getElementById('editor-line-numbers');
 
 	if (!editorCode || !lineNumbers) return;
+	if (editor_mode === 'diff') return;
 
 	const val = typeof code === 'string' ? code : jar ? jar.toString() : editorCode.textContent;
 	const lines = val.split('\n');
 	const lineCount = lines.length;
 
-	let numbers = [];
+	lineNumbers.innerHTML = '';
+	const fragment = document.createDocumentFragment();
+	const state = window.editorDiffState || {
+		added: new Set(),
+		modified: new Set(),
+		deletedBefore: new Set(),
+		deletedAfter: new Set()
+	};
+
 	for (let i = 1; i <= lineCount; i++) {
-		numbers.push(i);
+		const div = document.createElement('div');
+		div.className = 'line-num';
+		div.textContent = i;
+
+		if (state.added.has(i)) {
+			div.classList.add('added');
+		} else if (state.modified.has(i)) {
+			div.classList.add('modified');
+		}
+
+		if (state.deletedBefore.has(i)) {
+			div.classList.add('deleted-before');
+		}
+		if (i === lineCount && state.deletedAfter.has(i)) {
+			div.classList.add('deleted-after');
+		}
+
+		fragment.appendChild(div);
 	}
-	lineNumbers.textContent = numbers.join('\n');
+	lineNumbers.appendChild(fragment);
 
 	lineNumbers.scrollTop = editorCode.scrollTop;
 }
@@ -1259,14 +1292,7 @@ async function toggleEditorMode() {
 			}
 		}
 
-		// Fetch the git diff
 		toggleText.textContent = 'Loading Diff...';
-		const result = await window.api.readFileDiff(active_editor_file_path);
-		if (result.error) {
-			alert('Failed to read diff: ' + result.error);
-			toggleText.textContent = 'Diff Mode';
-			return;
-		}
 
 		editor_mode = 'diff';
 		editorCode.setAttribute('contenteditable', 'false');
@@ -1280,96 +1306,8 @@ async function toggleEditorMode() {
 		lineNumbers.style.fontFamily = "'Consolas', monospace";
 		lineNumbers.style.textAlign = 'left';
 
-		// Parse the raw diff into full file display lines & line numbers
-		const diffRaw = result.diff || '';
-		let displayLines = [];
-		let lineNumbersText = [];
-		let lineOld = 1;
-		let lineNew = 1;
-
-		if (!diffRaw || diffRaw.trim() === '') {
-			// No changes: display original content as unchanged context
-			const origResult = await window.api.readFileContent(active_editor_file_path);
-			const origContent = origResult.content || '';
-			const origLines = origContent.split('\n');
-			for (let i = 0; i < origLines.length; i++) {
-				displayLines.push(' ' + origLines[i]);
-				const oldStr = (i + 1).toString().padStart(4);
-				const newStr = (i + 1).toString().padStart(4);
-				lineNumbersText.push(oldStr + '  ' + newStr);
-			}
-		} else {
-			const lines = diffRaw.split('\n');
-			let hunkStartIndex = -1;
-			for (let i = 0; i < lines.length; i++) {
-				if (lines[i].startsWith('@@')) {
-					hunkStartIndex = i;
-					break;
-				}
-			}
-
-			if (hunkStartIndex !== -1) {
-				const match = lines[hunkStartIndex].match(/^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
-				if (match) {
-					lineOld = parseInt(match[1], 10);
-					lineNew = parseInt(match[2], 10);
-				}
-
-				for (let i = hunkStartIndex + 1; i < lines.length; i++) {
-					const line = lines[i];
-					if (line.startsWith('\\')) {
-						displayLines.push(line);
-						lineNumbersText.push('    ' + '  ' + '    ');
-						continue;
-					}
-
-					if (line.startsWith('-')) {
-						displayLines.push(line);
-						const oldStr = lineOld.toString().padStart(4);
-						lineNumbersText.push(oldStr + '  ' + '    ');
-						lineOld++;
-					} else if (line.startsWith('+')) {
-						displayLines.push(line);
-						const newStr = lineNew.toString().padStart(4);
-						lineNumbersText.push('    ' + '  ' + newStr);
-						lineNew++;
-					} else if (line.startsWith(' ')) {
-						displayLines.push(line);
-						const oldStr = lineOld.toString().padStart(4);
-						const newStr = lineNew.toString().padStart(4);
-						lineNumbersText.push(oldStr + '  ' + newStr);
-						lineOld++;
-						lineNew++;
-					} else {
-						if (i === lines.length - 1 && line === '') {
-							break;
-						}
-						displayLines.push(' ' + line);
-						const oldStr = lineOld.toString().padStart(4);
-						const newStr = lineNew.toString().padStart(4);
-						lineNumbersText.push(oldStr + '  ' + newStr);
-						lineOld++;
-						lineNew++;
-					}
-				}
-			} else {
-				for (let i = 0; i < lines.length; i++) {
-					displayLines.push(lines[i]);
-					lineNumbersText.push((i + 1).toString().padStart(4) + '  ' + (i + 1).toString().padStart(4));
-				}
-			}
-		}
-
-		const finalDiffCode = displayLines.join('\n');
-		if (jar) {
-			jar.updateCode(finalDiffCode);
-		} else {
-			editorCode.textContent = finalDiffCode;
-		}
-
-		lineNumbers.textContent = lineNumbersText.join('\n');
-		updateScrollbarDecorations();
-		lineNumbers.scrollTop = editorCode.scrollTop;
+		await updateScrollbarDecorations();
+		toggleText.textContent = 'Edit Mode';
 	} else {
 		// Switch to edit mode
 		toggleText.textContent = 'Loading File...';
@@ -1406,8 +1344,8 @@ async function toggleEditorMode() {
 			editorCode.textContent = result.content;
 		}
 		is_loading_file = false;
-		updateEditorLineNumbers(result.content);
-		updateScrollbarDecorations();
+
+		await updateScrollbarDecorations();
 	}
 }
 
@@ -1646,33 +1584,170 @@ async function updateScrollbarDecorations() {
 	colAdded.innerHTML = '';
 	colDeleted.innerHTML = '';
 
-	// If in Diff Mode, the file itself is a diff. We can just highlight the lines of the diff directly!
-	if (editor_mode === 'diff') {
-		const editorCode = document.getElementById('editor-code');
-		const lines = editorCode.textContent.split('\n');
-		const totalLines = lines.length;
-		if (totalLines === 0) return;
+	const editorCode = document.getElementById('editor-code');
+	const lineNumbers = document.getElementById('editor-line-numbers');
+	if (!editorCode || !lineNumbers) return;
 
-		for (let i = 0; i < totalLines; i++) {
-			const line = lines[i];
-			let type = null;
-			if (line.startsWith('-')) {
-				type = 'deleted';
-			} else if (line.startsWith('+')) {
-				type = 'added';
-			} else if (line.startsWith('@@')) {
-				type = 'modified';
+	if (editor_mode === 'diff') {
+		// Fetch the git diff
+		const result = await window.api.readFileDiff(active_editor_file_path);
+		if (result.error) {
+			alert('Failed to read diff: ' + result.error);
+			return;
+		}
+
+		const diffRaw = result.diff || '';
+		let displayLines = [];
+		let lineNumbersData = [];
+		let lineOld = 1;
+		let lineNew = 1;
+
+		if (!diffRaw || diffRaw.trim() === '') {
+			// No changes: display original content as unchanged context
+			const origResult = await window.api.readFileContent(active_editor_file_path);
+			const origContent = origResult.content || '';
+			const origLines = origContent.split('\n');
+			for (let i = 0; i < origLines.length; i++) {
+				displayLines.push(' ' + origLines[i]);
+				const oldStr = (i + 1).toString().padStart(4);
+				const newStr = (i + 1).toString().padStart(4);
+				lineNumbersData.push({
+					text: oldStr + '  ' + newStr,
+					className: 'line-num'
+				});
+			}
+		} else {
+			const lines = diffRaw.split('\n');
+			let hunkStartIndex = -1;
+			for (let i = 0; i < lines.length; i++) {
+				if (lines[i].startsWith('@@')) {
+					hunkStartIndex = i;
+					break;
+				}
 			}
 
-			if (type) {
-				const marker = document.createElement('div');
-				marker.className = 'decoration-marker';
-				const pct = (i / totalLines) * 100;
-				marker.style.top = pct.toFixed(2) + '%';
+			if (hunkStartIndex !== -1) {
+				const match = lines[hunkStartIndex].match(/^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+				if (match) {
+					lineOld = parseInt(match[1], 10);
+					lineNew = parseInt(match[2], 10);
+				}
 
-				if (type === 'deleted') colDeleted.appendChild(marker);
-				else if (type === 'added') colAdded.appendChild(marker);
-				else colModified.appendChild(marker);
+				for (let i = hunkStartIndex; i < lines.length; i++) {
+					const line = lines[i];
+					if (i === hunkStartIndex) {
+						displayLines.push(line);
+						lineNumbersData.push({
+							text: '    ' + '  ' + '    ',
+							className: 'line-num coord'
+						});
+						continue;
+					}
+
+					if (line.startsWith('\\')) {
+						displayLines.push(line);
+						lineNumbersData.push({
+							text: '    ' + '  ' + '    ',
+							className: 'line-num'
+						});
+						continue;
+					}
+
+					if (line.startsWith('-')) {
+						displayLines.push(line);
+						const oldStr = lineOld.toString().padStart(4);
+						lineNumbersData.push({
+							text: oldStr + '  ' + '    ',
+							className: 'line-num deleted'
+						});
+						lineOld++;
+					} else if (line.startsWith('+')) {
+						displayLines.push(line);
+						const newStr = lineNew.toString().padStart(4);
+						lineNumbersData.push({
+							text: '    ' + '  ' + newStr,
+							className: 'line-num added'
+						});
+						lineNew++;
+					} else if (line.startsWith(' ')) {
+						displayLines.push(line);
+						const oldStr = lineOld.toString().padStart(4);
+						const newStr = lineNew.toString().padStart(4);
+						lineNumbersData.push({
+							text: oldStr + '  ' + newStr,
+							className: 'line-num'
+						});
+						lineOld++;
+						lineNew++;
+					} else {
+						if (i === lines.length - 1 && line === '') {
+							break;
+						}
+						displayLines.push(' ' + line);
+						const oldStr = lineOld.toString().padStart(4);
+						const newStr = lineNew.toString().padStart(4);
+						lineNumbersData.push({
+							text: oldStr + '  ' + newStr,
+							className: 'line-num'
+						});
+						lineOld++;
+						lineNew++;
+					}
+				}
+			} else {
+				for (let i = 0; i < lines.length; i++) {
+					displayLines.push(lines[i]);
+					lineNumbersData.push({
+						text: (i + 1).toString().padStart(4) + '  ' + (i + 1).toString().padStart(4),
+						className: 'line-num'
+					});
+				}
+			}
+		}
+
+		const finalDiffCode = displayLines.join('\n');
+		is_loading_file = true;
+		if (jar) {
+			jar.updateCode(finalDiffCode);
+		} else {
+			editorCode.textContent = finalDiffCode;
+		}
+		is_loading_file = false;
+
+		lineNumbers.innerHTML = '';
+		const fragment = document.createDocumentFragment();
+		for (let i = 0; i < lineNumbersData.length; i++) {
+			const div = document.createElement('div');
+			div.className = lineNumbersData[i].className;
+			div.textContent = lineNumbersData[i].text;
+			fragment.appendChild(div);
+		}
+		lineNumbers.appendChild(fragment);
+		lineNumbers.scrollTop = editorCode.scrollTop;
+
+		const totalLines = displayLines.length;
+		if (totalLines > 0) {
+			for (let i = 0; i < totalLines; i++) {
+				const line = displayLines[i];
+				let type = null;
+				if (line.startsWith('-')) {
+					type = 'deleted';
+				} else if (line.startsWith('+')) {
+					type = 'added';
+				} else if (line.startsWith('@@')) {
+					type = 'modified';
+				}
+
+				if (type) {
+					const marker = document.createElement('div');
+					marker.className = 'decoration-marker';
+					const pct = (i / totalLines) * 100;
+					marker.style.top = pct.toFixed(2) + '%';
+
+					if (type === 'deleted') colDeleted.appendChild(marker);
+					else if (type === 'added') colAdded.appendChild(marker);
+					else colModified.appendChild(marker);
+				}
 			}
 		}
 		return;
@@ -1680,9 +1755,17 @@ async function updateScrollbarDecorations() {
 
 	// In Edit Mode, we fetch the git diff against HEAD to find changes
 	const result = await window.api.readFileDiff(active_editor_file_path);
-	if (result.error || !result.diff) return;
+	if (result.error || !result.diff) {
+		window.editorDiffState = {
+			added: new Set(),
+			modified: new Set(),
+			deletedBefore: new Set(),
+			deletedAfter: new Set()
+		};
+		updateEditorLineNumbers();
+		return;
+	}
 
-	const editorCode = document.getElementById('editor-code');
 	const currentLines = editorCode.textContent.split('\n');
 	const totalLines = currentLines.length;
 	if (totalLines === 0) return;
@@ -1718,19 +1801,34 @@ async function updateScrollbarDecorations() {
 
 	const allPositions = new Set([...lineAdditions, ...lineDeletions]);
 
+	const addedSet = new Set();
+	const modifiedSet = new Set();
+	const deletedBeforeSet = new Set();
+	const deletedAfterSet = new Set();
+
 	for (const lineNum of allPositions) {
 		let type = null;
 		if (lineAdditions.has(lineNum) && lineDeletions.has(lineNum)) {
 			type = 'modified';
+			modifiedSet.add(lineNum);
 		} else if (lineAdditions.has(lineNum)) {
 			type = 'added';
+			addedSet.add(lineNum);
 		} else {
 			type = 'deleted';
+			if (lineNum === 1) {
+				deletedBeforeSet.add(1);
+			} else if (lineNum <= totalLines) {
+				deletedBeforeSet.add(lineNum);
+			} else {
+				deletedAfterSet.add(totalLines);
+			}
 		}
 
 		const marker = document.createElement('div');
 		marker.className = 'decoration-marker';
-		const pct = ((lineNum - 1) / totalLines) * 100;
+		const displayLineNum = Math.min(lineNum, totalLines);
+		const pct = ((displayLineNum - 1) / totalLines) * 100;
 		marker.style.top = pct.toFixed(2) + '%';
 
 		if (type === 'modified') {
@@ -1741,4 +1839,13 @@ async function updateScrollbarDecorations() {
 			colDeleted.appendChild(marker);
 		}
 	}
+
+	window.editorDiffState = {
+		added: addedSet,
+		modified: modifiedSet,
+		deletedBefore: deletedBeforeSet,
+		deletedAfter: deletedAfterSet
+	};
+
+	updateEditorLineNumbers();
 }

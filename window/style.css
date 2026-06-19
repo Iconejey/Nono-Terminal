@@ -620,6 +620,70 @@ body.editor-active terminal-chat {
 	flex-shrink: 0;
 }
 
+.line-num {
+	position: relative;
+	line-height: 1.5;
+}
+
+.line-num.added::after {
+	content: "";
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	right: -12px;
+	width: 2px;
+	background-color: var(--green);
+	z-index: 5;
+}
+
+.line-num.modified::after {
+	content: "";
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	right: -12px;
+	width: 2px;
+	background-color: var(--blue-soft);
+	z-index: 5;
+}
+
+.line-num.deleted::after {
+	content: "";
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	right: -12px;
+	width: 2px;
+	background-color: var(--red);
+	z-index: 5;
+}
+
+.line-num.coord {
+	color: var(--purple) !important;
+}
+
+.line-num.deleted-before::before {
+	content: "";
+	position: absolute;
+	top: 0;
+	left: -12px;
+	right: -12px;
+	height: 2px;
+	background-color: var(--red);
+	z-index: 5;
+}
+
+.line-num.deleted-after::before {
+	content: "";
+	position: absolute;
+	bottom: 0;
+	left: -12px;
+	right: -12px;
+	height: 2px;
+	background-color: var(--red);
+	z-index: 5;
+}
+
 .editor-scrollbar-decorations {
 	position: absolute;
 	right: 0;
