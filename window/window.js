@@ -1186,14 +1186,14 @@ async function saveEditorContent() {
 
 	const originalText = saveBtn.innerHTML;
 	saveBtn.disabled = true;
-	saveBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size: 1.2em;">sync</span> Saving...';
+	saveBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size: 1.2em;">sync</span> <span class="btn-text">Saving...</span>';
 
 	const content = jar ? jar.toString() : editorCode.textContent;
 	const result = await window.api.saveFileContent(active_editor_file_path, content);
 	saveBtn.disabled = false;
 
 	if (result.error) {
-		saveBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size: 1.2em;">error</span> Error';
+		saveBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size: 1.2em;">error</span> <span class="btn-text">Error</span>';
 		alert('Failed to save file: ' + result.error);
 		setTimeout(() => {
 			saveBtn.innerHTML = originalText;
@@ -1214,7 +1214,7 @@ async function saveEditorContent() {
 			}
 			updateEditorLineNumbers(result.formattedContent);
 		}
-		saveBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size: 1.2em;">done</span> Saved';
+		saveBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size: 1.2em;">done</span> <span class="btn-text">Saved</span>';
 		saveBtn.style.background = 'var(--green)';
 		saveBtn.style.color = 'var(--black)';
 		setTimeout(() => {

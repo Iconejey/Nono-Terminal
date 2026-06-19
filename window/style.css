@@ -1061,13 +1061,23 @@ body.diff-active terminal-chat {
 }
 
 @media (max-width: 768px) {
-	.editor-overlay {
+	.editor-overlay,
+	.diff-overlay {
 		font-size: 14px;
 	}
-	.btn-editor {
-		padding: 5px 10px;
-		font-size: 0.8em;
-		gap: 4px;
+	.editor-file-path,
+	.diff-title {
+		font-size: 15px;
+	}
+	.btn-editor,
+	.btn-diff {
+		padding: 8px 10px;
+		font-size: 1.15em;
+		gap: 0;
+	}
+	.btn-editor .btn-text,
+	.btn-diff .btn-text {
+		display: none;
 	}
 	.editor-line-numbers {
 		min-width: 35px;
