@@ -49,6 +49,7 @@ function startMobileServer() {
   
   io_server.on("connection", (socket) => {
     let joinedRoom = null;
+    let screen_stream_interval = null;
     
     const getWindowData = (windowId) => {
       const wId = parseInt(windowId, 10);
@@ -335,8 +336,45 @@ function startMobileServer() {
       });
     });
 
+    socket.on("start-screen-stream", () => {
+      console.log("Socket client requested screen stream start");
+      if (screen_stream_interval) {
+        clearInterval(screen_stream_interval);
+      }
+      
+      const captureAndSend = () => {
+        const { desktopCapturer } = require("electron");
+        desktopCapturer.getSources({ types: ["screen"], thumbnailSize: { width: 1280, height: 720 } }).then(sources => {
+          if (sources.length > 0) {
+            const source = sources[0];
+            const jpeg_buffer = source.thumbnail.toJPEG(80);
+            const base64_str = jpeg_buffer.toString("base64");
+            const data_url = `data:image/jpeg;base64,${base64_str}`;
+            socket.emit("screen-frame", { dataUrl: data_url });
+          }
+        }).catch(err => {
+          console.error("Screen capture failed:", err);
+        });
+      };
+
+      captureAndSend();
+      screen_stream_interval = setInterval(captureAndSend, 1000);
+    });
+
+    socket.on("stop-screen-stream", () => {
+      console.log("Socket client requested screen stream stop");
+      if (screen_stream_interval) {
+        clearInterval(screen_stream_interval);
+        screen_stream_interval = null;
+      }
+    });
+
     socket.on("disconnect", () => {
       console.log("Socket client disconnected");
+      if (screen_stream_interval) {
+        clearInterval(screen_stream_interval);
+        screen_stream_interval = null;
+      }
     });
   });
   

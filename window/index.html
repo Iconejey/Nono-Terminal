@@ -98,7 +98,10 @@
 									new Promise(resolve => {
 										socket.emit('unpin-dir', { windowId: window.api.windowId, dirPath }, resolve);
 									})
-							)
+							),
+						startScreenStream: () => socketPromise.then(socket => socket.emit('start-screen-stream')),
+						stopScreenStream: () => socketPromise.then(socket => socket.emit('stop-screen-stream')),
+						onScreenFrame: callback => socketPromise.then(socket => socket.on('screen-frame', callback))
 					};
 
 					window.api.windowId = new URLSearchParams(window.location.search).get('windowId');
@@ -122,6 +125,9 @@
 		<script src="window.js" defer></script>
 	</head>
 	<body>
+		<div id="screen-stream-container" style="display: none; width: 100%; text-align: center; background: #000; border-bottom: 2px solid var(--charcoal-light); position: sticky; top: 0; z-index: 100;">
+			<img id="screen-stream-img" style="max-width: 100%; max-height: 40vh; object-fit: contain; display: block; margin: 0 auto;" />
+		</div>
 		<terminal-chat class="mode-full" id="terminal-chat-container">
 			<!-- Dynamically appended chat history will go here -->
 

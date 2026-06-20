@@ -52,6 +52,10 @@ const slash_commands = [
 		description: 'Unpin a directory (autocompletes pinned directories)'
 	},
 	{
+		name: '/screen',
+		description: 'Toggle computer screen sharing/streaming (mobile only)'
+	},
+	{
 		name: '/shortcuts',
 		description: 'List available keyboard shortcuts with descriptions'
 	},
@@ -553,6 +557,52 @@ function submitInput(text, usePro = false) {
 				appendNewPromptBlock(current_cwd);
 			}
 			return;
+		} else if (trimmed === '/screen') {
+			const is_mobile = !window.process || !window.process.versions || !window.process.versions.electron;
+			if (!is_mobile) {
+				const container = document.getElementById('terminal-chat-container');
+				const active_block = document.getElementById('active-chat-block');
+
+				const out_pre = document.createElement('pre');
+				out_pre.className = 'output';
+				out_pre.textContent = 'Error: The /screen command is only available on mobile devices connection.';
+				active_block.appendChild(out_pre);
+				appendNewPromptBlock(current_cwd);
+				return;
+			}
+
+			const container_elem = document.getElementById('screen-stream-container');
+			if (container_elem) {
+				const is_visible = container_elem.style.display !== 'none';
+				if (is_visible) {
+					container_elem.style.display = 'none';
+					if (window.api.stopScreenStream) {
+						window.api.stopScreenStream();
+					}
+					
+					const container = document.getElementById('terminal-chat-container');
+					const active_block = document.getElementById('active-chat-block');
+					const out_pre = document.createElement('pre');
+					out_pre.className = 'output';
+					out_pre.textContent = 'Screen stream stopped.';
+					active_block.appendChild(out_pre);
+					appendNewPromptBlock(current_cwd);
+				} else {
+					container_elem.style.display = 'block';
+					if (window.api.startScreenStream) {
+						window.api.startScreenStream();
+					}
+
+					const container = document.getElementById('terminal-chat-container');
+					const active_block = document.getElementById('active-chat-block');
+					const out_pre = document.createElement('pre');
+					out_pre.className = 'output';
+					out_pre.textContent = 'Screen stream started.';
+					active_block.appendChild(out_pre);
+					appendNewPromptBlock(current_cwd);
+				}
+			}
+			return;
 		} else if (trimmed.startsWith('/open')) {
 			const pathArg = trimmed.substring(5).trim();
 			handleOpenCommand(pathArg);
@@ -904,6 +954,15 @@ window.api.onShowQrCode(({ url, qrCodeDataUrl }) => {
 	}
 	document.body.classList.add('mobile-active');
 });
+
+if (window.api.onScreenFrame) {
+	window.api.onScreenFrame(({ dataUrl }) => {
+		const img = document.getElementById('screen-stream-img');
+		if (img) {
+			img.src = dataUrl;
+		}
+	});
+}
 
 function closeMobileModal() {
 	document.body.classList.remove('mobile-active');

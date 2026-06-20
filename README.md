@@ -10,11 +10,11 @@ Nono-Terminal is an Electron-based persistent terminal emulator integrated with 
 - Autocompletion for file paths and directory names in the prompt.
 - AI autocomplete suggestions for terminal input and code editing.
 - Multi-line input support on mobile devices.
-- On startup, show a directory list with the home directory and the pinned directories. To pin a directory, use the `/pin` slash command. X buttons in the directory list allow unpinning directories.
 - Full git management using commit (messages, button), push, pull and commit history in the currently implemented changes/diff page, renaming it "git management" page.
 - Better file edit output print.
 - /web {query} slash command to do a web search
 - /files slash command to toggle a file explorer view and navigate the workspace files.
+- /screen on mobile devices to toggle the full computer screen streaming view at the top of the app.
 
 ## Architecture & Technical Stack
 
