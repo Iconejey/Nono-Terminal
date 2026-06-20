@@ -1,225 +1,467 @@
 <!doctype html>
 <html lang="en">
-	<head>
-		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-		<meta name="theme-color" content="#191919" />
-		<title>Nono-Terminal</title>
-		<link rel="stylesheet" href="style.css" />
-		<script>
-			(function () {
-				if (!window.api) {
-					// Set up a promise that resolves when socket is connected
-					let socketResolve;
-					const socketPromise = new Promise(resolve => {
-						socketResolve = resolve;
-					});
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#191919" />
+    <title>Nono-Terminal</title>
+    <link rel="stylesheet" href="style.css" />
+    <script>
+      (function () {
+        if (!window.api) {
+          // Set up a promise that resolves when socket is connected
+          let socketResolve;
+          const socketPromise = new Promise((resolve) => {
+            socketResolve = resolve;
+          });
 
-					window.api = {
-						sendUserCommand: command => socketPromise.then(socket => socket.emit('run-user-command', { windowId: window.api.windowId, command })),
-						sendAgentPrompt: (prompt, usePro) => socketPromise.then(socket => socket.emit('run-agent-prompt', { windowId: window.api.windowId, prompt, usePro })),
-						sendInterrupt: () => socketPromise.then(socket => socket.emit('shell-interrupt', { windowId: window.api.windowId })),
-						onShellOutput: callback => socketPromise.then(socket => socket.on('shell-output', callback)),
-						onShellComplete: callback => socketPromise.then(socket => socket.on('shell-complete', callback)),
-						onAgentChunk: callback => socketPromise.then(socket => socket.on('agent-chunk', callback)),
-						onAgentComplete: callback => socketPromise.then(socket => socket.on('agent-complete', callback)),
-						onAgentToolStart: callback => socketPromise.then(socket => socket.on('agent-tool-start', callback)),
-						onAgentToolOutput: callback => socketPromise.then(socket => socket.on('agent-tool-output', callback)),
-						onAgentToolComplete: callback => socketPromise.then(socket => socket.on('agent-tool-complete', callback)),
-						onAgentStatus: callback => socketPromise.then(socket => socket.on('agent-status', callback)),
-						onWindowInit: callback => socketPromise.then(socket => socket.on('window-init', callback)),
-						onPinnedDirsUpdated: callback => socketPromise.then(socket => socket.on('pinned-dirs-updated', callback)),
-						onShowQrCode: callback => socketPromise.then(socket => socket.on('show-qrcode', callback)),
-						onHideQrCode: callback => socketPromise.then(socket => socket.on('hide-qrcode', callback)),
-						onShellCommandStart: callback => socketPromise.then(socket => socket.on('shell-command-start', callback)),
-						onAgentPromptStart: callback => socketPromise.then(socket => socket.on('agent-prompt-start', callback)),
-						executeSlashCommand: command => socketPromise.then(socket => socket.emit('execute-slash-command', { windowId: window.api.windowId, command })),
-						sendApiKey: key => socketPromise.then(socket => socket.emit('send-api-key', { windowId: window.api.windowId, key })),
-						toggleDebugMode: () => socketPromise.then(socket => socket.emit('toggle-debug-mode', { windowId: window.api.windowId })),
-						requestState: () => socketPromise.then(socket => socket.emit('request-state', { windowId: window.api.windowId })),
-						readDir: dirPath =>
-							socketPromise.then(
-								socket =>
-									new Promise(resolve => {
-										socket.emit('read-dir', { windowId: window.api.windowId, dirPath }, resolve);
-									})
-							),
-						readFileContent: filePath =>
-							socketPromise.then(
-								socket =>
-									new Promise(resolve => {
-										socket.emit('read-file-content', { windowId: window.api.windowId, filePath }, resolve);
-									})
-							),
-						saveFileContent: (filePath, content) =>
-							socketPromise.then(
-								socket =>
-									new Promise(resolve => {
-										socket.emit('save-file-content', { windowId: window.api.windowId, filePath, content }, resolve);
-									})
-							),
-						openInVsCode: filePath =>
-							socketPromise.then(
-								socket =>
-									new Promise(resolve => {
-										socket.emit('open-in-vs-code', { windowId: window.api.windowId, filePath }, resolve);
-									})
-							),
-						readGitStatus: () =>
-							socketPromise.then(
-								socket =>
-									new Promise(resolve => {
-										socket.emit('read-git-status', { windowId: window.api.windowId }, resolve);
-									})
-							),
-						stageFile: filePath =>
-							socketPromise.then(
-								socket =>
-									new Promise(resolve => {
-										socket.emit('git-stage-file', { windowId: window.api.windowId, filePath }, resolve);
-									})
-							),
-						unstageFile: filePath =>
-							socketPromise.then(
-								socket =>
-									new Promise(resolve => {
-										socket.emit('git-unstage-file', { windowId: window.api.windowId, filePath }, resolve);
-									})
-							),
-						readFileDiff: filePath =>
-							socketPromise.then(
-								socket =>
-									new Promise(resolve => {
-										socket.emit('read-file-diff', { windowId: window.api.windowId, filePath }, resolve);
-									})
-							),
-						unpinDir: dirPath =>
-							socketPromise.then(
-								socket =>
-									new Promise(resolve => {
-										socket.emit('unpin-dir', { windowId: window.api.windowId, dirPath }, resolve);
-									})
-							),
-						startScreenStream: () => socketPromise.then(socket => socket.emit('start-screen-stream')),
-						stopScreenStream: () => socketPromise.then(socket => socket.emit('stop-screen-stream')),
-						onScreenFrame: callback => socketPromise.then(socket => socket.on('screen-frame', callback)),
-						onWebRtcSignal: callback => socketPromise.then(socket => socket.on('webrtc-signal', callback)),
-						sendWebRtcSignal: signal => socketPromise.then(socket => socket.emit('webrtc-signal', { signal })),
-						requestFallbackStream: () => socketPromise.then(socket => socket.emit('request-fallback-stream'))
-					};
+          window.api = {
+            isElectron: false,
+            sendUserCommand: (command) =>
+              socketPromise.then((socket) =>
+                socket.emit("run-user-command", {
+                  windowId: window.api.windowId,
+                  command,
+                }),
+              ),
+            sendAgentPrompt: (prompt, usePro) =>
+              socketPromise.then((socket) =>
+                socket.emit("run-agent-prompt", {
+                  windowId: window.api.windowId,
+                  prompt,
+                  usePro,
+                }),
+              ),
+            sendInterrupt: () =>
+              socketPromise.then((socket) =>
+                socket.emit("shell-interrupt", {
+                  windowId: window.api.windowId,
+                }),
+              ),
+            onShellOutput: (callback) =>
+              socketPromise.then((socket) =>
+                socket.on("shell-output", callback),
+              ),
+            onShellComplete: (callback) =>
+              socketPromise.then((socket) =>
+                socket.on("shell-complete", callback),
+              ),
+            onAgentChunk: (callback) =>
+              socketPromise.then((socket) =>
+                socket.on("agent-chunk", callback),
+              ),
+            onAgentComplete: (callback) =>
+              socketPromise.then((socket) =>
+                socket.on("agent-complete", callback),
+              ),
+            onAgentToolStart: (callback) =>
+              socketPromise.then((socket) =>
+                socket.on("agent-tool-start", callback),
+              ),
+            onAgentToolOutput: (callback) =>
+              socketPromise.then((socket) =>
+                socket.on("agent-tool-output", callback),
+              ),
+            onAgentToolComplete: (callback) =>
+              socketPromise.then((socket) =>
+                socket.on("agent-tool-complete", callback),
+              ),
+            onAgentStatus: (callback) =>
+              socketPromise.then((socket) =>
+                socket.on("agent-status", callback),
+              ),
+            onWindowInit: (callback) =>
+              socketPromise.then((socket) =>
+                socket.on("window-init", callback),
+              ),
+            onPinnedDirsUpdated: (callback) =>
+              socketPromise.then((socket) =>
+                socket.on("pinned-dirs-updated", callback),
+              ),
+            onShowQrCode: (callback) =>
+              socketPromise.then((socket) =>
+                socket.on("show-qrcode", callback),
+              ),
+            onHideQrCode: (callback) =>
+              socketPromise.then((socket) =>
+                socket.on("hide-qrcode", callback),
+              ),
+            onShellCommandStart: (callback) =>
+              socketPromise.then((socket) =>
+                socket.on("shell-command-start", callback),
+              ),
+            onAgentPromptStart: (callback) =>
+              socketPromise.then((socket) =>
+                socket.on("agent-prompt-start", callback),
+              ),
+            executeSlashCommand: (command) =>
+              socketPromise.then((socket) =>
+                socket.emit("execute-slash-command", {
+                  windowId: window.api.windowId,
+                  command,
+                }),
+              ),
+            sendApiKey: (key) =>
+              socketPromise.then((socket) =>
+                socket.emit("send-api-key", {
+                  windowId: window.api.windowId,
+                  key,
+                }),
+              ),
+            toggleDebugMode: () =>
+              socketPromise.then((socket) =>
+                socket.emit("toggle-debug-mode", {
+                  windowId: window.api.windowId,
+                }),
+              ),
+            requestState: () =>
+              socketPromise.then((socket) =>
+                socket.emit("request-state", { windowId: window.api.windowId }),
+              ),
+            readDir: (dirPath) =>
+              socketPromise.then(
+                (socket) =>
+                  new Promise((resolve) => {
+                    socket.emit(
+                      "read-dir",
+                      { windowId: window.api.windowId, dirPath },
+                      resolve,
+                    );
+                  }),
+              ),
+            readFileContent: (filePath) =>
+              socketPromise.then(
+                (socket) =>
+                  new Promise((resolve) => {
+                    socket.emit(
+                      "read-file-content",
+                      { windowId: window.api.windowId, filePath },
+                      resolve,
+                    );
+                  }),
+              ),
+            saveFileContent: (filePath, content) =>
+              socketPromise.then(
+                (socket) =>
+                  new Promise((resolve) => {
+                    socket.emit(
+                      "save-file-content",
+                      { windowId: window.api.windowId, filePath, content },
+                      resolve,
+                    );
+                  }),
+              ),
+            openInVsCode: (filePath) =>
+              socketPromise.then(
+                (socket) =>
+                  new Promise((resolve) => {
+                    socket.emit(
+                      "open-in-vs-code",
+                      { windowId: window.api.windowId, filePath },
+                      resolve,
+                    );
+                  }),
+              ),
+            readGitStatus: () =>
+              socketPromise.then(
+                (socket) =>
+                  new Promise((resolve) => {
+                    socket.emit(
+                      "read-git-status",
+                      { windowId: window.api.windowId },
+                      resolve,
+                    );
+                  }),
+              ),
+            stageFile: (filePath) =>
+              socketPromise.then(
+                (socket) =>
+                  new Promise((resolve) => {
+                    socket.emit(
+                      "git-stage-file",
+                      { windowId: window.api.windowId, filePath },
+                      resolve,
+                    );
+                  }),
+              ),
+            unstageFile: (filePath) =>
+              socketPromise.then(
+                (socket) =>
+                  new Promise((resolve) => {
+                    socket.emit(
+                      "git-unstage-file",
+                      { windowId: window.api.windowId, filePath },
+                      resolve,
+                    );
+                  }),
+              ),
+            readFileDiff: (filePath) =>
+              socketPromise.then(
+                (socket) =>
+                  new Promise((resolve) => {
+                    socket.emit(
+                      "read-file-diff",
+                      { windowId: window.api.windowId, filePath },
+                      resolve,
+                    );
+                  }),
+              ),
+            unpinDir: (dirPath) =>
+              socketPromise.then(
+                (socket) =>
+                  new Promise((resolve) => {
+                    socket.emit(
+                      "unpin-dir",
+                      { windowId: window.api.windowId, dirPath },
+                      resolve,
+                    );
+                  }),
+              ),
+            startScreenStream: () =>
+              socketPromise.then((socket) =>
+                socket.emit("start-screen-stream"),
+              ),
+            stopScreenStream: () =>
+              socketPromise.then((socket) => socket.emit("stop-screen-stream")),
+            onScreenFrame: (callback) =>
+              socketPromise.then((socket) =>
+                socket.on("screen-frame", callback),
+              ),
+            onWebRtcSignal: (callback) =>
+              socketPromise.then((socket) =>
+                socket.on("webrtc-signal", callback),
+              ),
+            sendWebRtcSignal: (signal) =>
+              socketPromise.then((socket) =>
+                socket.emit("webrtc-signal", { signal }),
+              ),
+            requestFallbackStream: () =>
+              socketPromise.then((socket) =>
+                socket.emit("request-fallback-stream"),
+              ),
+            onCursorSync: (callback) =>
+              socketPromise.then((socket) =>
+                socket.on("cursor-sync", callback),
+              ),
+            sendMouseMove: (coords) =>
+              socketPromise.then((socket) => socket.emit("mouse-move", coords)),
+            sendMouseClick: (coords) =>
+              socketPromise.then((socket) =>
+                socket.emit("mouse-click", coords),
+              ),
+            sendCropRegion: (region) =>
+              socketPromise.then((socket) =>
+                socket.emit("update-crop-region", { region }),
+              ),
+            onStreamCropUpdated: (callback) =>
+              socketPromise.then((socket) =>
+                socket.on("stream-crop-updated", callback),
+              ),
+            onConnect: (callback) => {
+              window.api.onConnectCallback = callback;
+            },
+            onDisconnect: (callback) => {
+              window.api.onDisconnectCallback = callback;
+            },
+          };
 
-					window.api.windowId = new URLSearchParams(window.location.search).get('windowId');
+          window.api.windowId = new URLSearchParams(window.location.search).get(
+            "windowId",
+          );
 
-					const s = document.createElement('script');
-					s.src = '/socket.io/socket.io.js';
-					s.onload = () => {
-						const socket = io();
-						socket.on('connect', () => {
-							socket.emit('register', { windowId: window.api.windowId });
-						});
-						socketResolve(socket);
-					};
-					document.head.appendChild(s);
-				}
-			})();
-		</script>
-		<script src="prism.js" defer></script>
-		<script src="codejar.js" defer></script>
-		<script src="marked.min.js" defer></script>
-		<script src="window.js" defer></script>
-	</head>
-	<body>
-		<div id="screen-stream-container" style="display: none; width: 100%; text-align: center; background: #000; border-bottom: 2px solid var(--charcoal-light); position: sticky; top: 0; z-index: 100;">
-			<img id="screen-stream-img" style="max-width: 100%; max-height: 40vh; object-fit: contain; display: block; margin: 0 auto;" />
-			<video id="screen-stream-video" autoplay playsinline muted style="max-width: 100%; max-height: 40vh; object-fit: contain; display: none; margin: 0 auto;"></video>
-		</div>
-		<terminal-chat class="mode-full" id="terminal-chat-container">
-			<!-- Dynamically appended chat history will go here -->
+          const s = document.createElement("script");
+          s.src = "/socket.io/socket.io.js";
+          s.onload = () => {
+            const socket = io();
+            socket.on("connect", () => {
+              socket.emit("register", { windowId: window.api.windowId });
+              if (window.api.onConnectCallback) window.api.onConnectCallback();
+            });
+            socket.on("disconnect", () => {
+              if (window.api.onDisconnectCallback)
+                window.api.onDisconnectCallback();
+            });
+            socketResolve(socket);
+          };
+          document.head.appendChild(s);
+        }
+      })();
+    </script>
+    <script src="prism.js" defer></script>
+    <script src="codejar.js" defer></script>
+    <script src="marked.min.js" defer></script>
+    <script src="window.js" defer></script>
+  </head>
+  <body>
+    <div
+      id="screen-stream-container"
+      style="
+        display: none;
+        width: 100%;
+        text-align: center;
+        background: #000;
+        border-bottom: 2px solid var(--charcoal-light);
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        touch-action: none;
+        overflow: hidden;
+      "
+    >
+      <img
+        id="screen-stream-img"
+        style="
+          max-width: 100%;
+          max-height: 40vh;
+          object-fit: contain;
+          display: block;
+          margin: 0 auto;
+        "
+      />
+      <video
+        id="screen-stream-video"
+        autoplay
+        playsinline
+        muted
+        style="
+          max-width: 100%;
+          max-height: 40vh;
+          object-fit: contain;
+          display: none;
+          margin: 0 auto;
+        "
+      ></video>
+    </div>
+    <terminal-chat class="mode-full" id="terminal-chat-container">
+      <!-- Dynamically appended chat history will go here -->
 
-			<chat-block from="user" id="active-chat-block">
-				<pre class="input chat-marker" contenteditable="true" id="active-input" spellcheck="false" autocapitalize="none" autocorrect="off"></pre>
-				<div class="slash-suggestions" id="slash-suggestions"></div>
-			</chat-block>
-		</terminal-chat>
+      <chat-block from="user" id="active-chat-block">
+        <pre
+          class="input chat-marker"
+          contenteditable="true"
+          id="active-input"
+          spellcheck="false"
+          autocapitalize="none"
+          autocorrect="off"
+        ></pre>
+        <div class="slash-suggestions" id="slash-suggestions"></div>
+      </chat-block>
+    </terminal-chat>
 
-		<!-- Code Editor Overlay -->
-		<div id="editor-overlay" class="editor-overlay">
-			<div class="editor-header">
-				<div class="editor-title-area">
-					<span class="material-symbols-outlined editor-icon">edit_note</span>
-					<span id="editor-file-path" class="editor-file-path">file.txt</span>
-				</div>
-				<div class="editor-actions">
-					<button id="editor-btn-toggle-lines" class="btn-editor btn-toggle-lines">
-						<span class="material-symbols-outlined" style="font-size: 1.2em">format_list_numbered</span>
-						<span class="btn-text">Lines</span>
-					</button>
-					<button id="editor-btn-toggle-mode" class="btn-editor btn-toggle-mode">
-						<span class="material-symbols-outlined" id="editor-toggle-icon" style="font-size: 1.2em">difference</span>
-						<span id="editor-toggle-text" class="btn-text">Diff Mode</span>
-					</button>
-					<button id="editor-btn-save" class="btn-editor btn-save">
-						<span class="material-symbols-outlined" style="font-size: 1.2em">save</span>
-						<span class="btn-text">Save</span>
-					</button>
-					<button id="editor-btn-close" class="btn-editor btn-close">
-						<span class="material-symbols-outlined" style="font-size: 1.2em">close</span>
-						<span class="btn-text">Close</span>
-					</button>
-				</div>
-			</div>
-			<div class="editor-body">
-				<div id="editor-line-numbers" class="editor-line-numbers">1</div>
-				<div id="editor-code" class="editor-code language-javascript" spellcheck="false"></div>
-				<div id="editor-scrollbar-decorations" class="editor-scrollbar-decorations">
-					<div class="decorations-col modified"></div>
-					<div class="decorations-col added"></div>
-					<div class="decorations-col deleted"></div>
-				</div>
-			</div>
-		</div>
+    <!-- Code Editor Overlay -->
+    <div id="editor-overlay" class="editor-overlay">
+      <div class="editor-header">
+        <div class="editor-title-area">
+          <span class="material-symbols-outlined editor-icon">edit_note</span>
+          <span id="editor-file-path" class="editor-file-path">file.txt</span>
+        </div>
+        <div class="editor-actions">
+          <button
+            id="editor-btn-toggle-lines"
+            class="btn-editor btn-toggle-lines"
+          >
+            <span class="material-symbols-outlined" style="font-size: 1.2em"
+              >format_list_numbered</span
+            >
+            <span class="btn-text">Lines</span>
+          </button>
+          <button
+            id="editor-btn-toggle-mode"
+            class="btn-editor btn-toggle-mode"
+          >
+            <span
+              class="material-symbols-outlined"
+              id="editor-toggle-icon"
+              style="font-size: 1.2em"
+              >difference</span
+            >
+            <span id="editor-toggle-text" class="btn-text">Diff Mode</span>
+          </button>
+          <button id="editor-btn-save" class="btn-editor btn-save">
+            <span class="material-symbols-outlined" style="font-size: 1.2em"
+              >save</span
+            >
+            <span class="btn-text">Save</span>
+          </button>
+          <button id="editor-btn-close" class="btn-editor btn-close">
+            <span class="material-symbols-outlined" style="font-size: 1.2em"
+              >close</span
+            >
+            <span class="btn-text">Close</span>
+          </button>
+        </div>
+      </div>
+      <div class="editor-body">
+        <div id="editor-line-numbers" class="editor-line-numbers">1</div>
+        <div
+          id="editor-code"
+          class="editor-code language-javascript"
+          spellcheck="false"
+        ></div>
+        <div
+          id="editor-scrollbar-decorations"
+          class="editor-scrollbar-decorations"
+        >
+          <div class="decorations-col modified"></div>
+          <div class="decorations-col added"></div>
+          <div class="decorations-col deleted"></div>
+        </div>
+      </div>
+    </div>
 
-		<!-- Mobile / QR Code Modal -->
-		<div id="mobile-overlay" class="mobile-overlay">
-			<div class="mobile-modal">
-				<div class="mobile-modal-header">
-					<span class="material-symbols-outlined mobile-modal-icon">qr_code_2</span>
-					<span class="mobile-modal-title">Mobile Terminal Connection</span>
-					<button id="mobile-btn-close" class="btn-mobile-close">
-						<span class="material-symbols-outlined">close</span>
-					</button>
-				</div>
-				<div class="mobile-modal-body">
-					<p>Scan this QR code with your mobile device to control this terminal window:</p>
-					<div class="qr-container">
-						<img id="qr-image" src="" alt="QR Code" />
-					</div>
-					<a id="qr-url" href="" target="_blank" class="qr-url">URL</a>
-				</div>
-			</div>
-		</div>
+    <!-- Mobile / QR Code Modal -->
+    <div id="mobile-overlay" class="mobile-overlay">
+      <div class="mobile-modal">
+        <div class="mobile-modal-header">
+          <span class="material-symbols-outlined mobile-modal-icon"
+            >qr_code_2</span
+          >
+          <span class="mobile-modal-title">Mobile Terminal Connection</span>
+          <button id="mobile-btn-close" class="btn-mobile-close">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+        <div class="mobile-modal-body">
+          <p>
+            Scan this QR code with your mobile device to control this terminal
+            window:
+          </p>
+          <div class="qr-container">
+            <img id="qr-image" src="" alt="QR Code" />
+          </div>
+          <a id="qr-url" href="" target="_blank" class="qr-url">URL</a>
+        </div>
+      </div>
+    </div>
 
-		<!-- Git Diff Overlay -->
-		<div id="diff-overlay" class="diff-overlay">
-			<div class="diff-header">
-				<div class="diff-title-area">
-					<span class="material-symbols-outlined diff-icon">difference</span>
-					<span class="diff-title">Workspace Git Changes</span>
-				</div>
-				<div class="diff-actions">
-					<button id="diff-btn-refresh" class="btn-diff btn-refresh">
-						<span class="material-symbols-outlined" style="font-size: 1.2em">refresh</span>
-						<span class="btn-text">Refresh</span>
-					</button>
-					<button id="diff-btn-close" class="btn-diff btn-close">
-						<span class="material-symbols-outlined" style="font-size: 1.2em">close</span>
-						<span class="btn-text">Close</span>
-					</button>
-				</div>
-			</div>
-			<div id="diff-body" class="diff-body">
-				<!-- Rendered lists will go here -->
-			</div>
-		</div>
-	</body>
+    <!-- Git Diff Overlay -->
+    <div id="diff-overlay" class="diff-overlay">
+      <div class="diff-header">
+        <div class="diff-title-area">
+          <span class="material-symbols-outlined diff-icon">difference</span>
+          <span class="diff-title">Workspace Git Changes</span>
+        </div>
+        <div class="diff-actions">
+          <button id="diff-btn-refresh" class="btn-diff btn-refresh">
+            <span class="material-symbols-outlined" style="font-size: 1.2em"
+              >refresh</span
+            >
+            <span class="btn-text">Refresh</span>
+          </button>
+          <button id="diff-btn-close" class="btn-diff btn-close">
+            <span class="material-symbols-outlined" style="font-size: 1.2em"
+              >close</span
+            >
+            <span class="btn-text">Close</span>
+          </button>
+        </div>
+      </div>
+      <div id="diff-body" class="diff-body">
+        <!-- Rendered lists will go here -->
+      </div>
+    </div>
+  </body>
 </html>

@@ -46,18 +46,19 @@ function startMobileServer() {
   if (web_server) {
     return Promise.resolve(server_port);
   }
-  
+
   const expressApp = express();
   const httpServer = http.createServer(expressApp);
   io_server = socketIo(httpServer);
-  
+
   expressApp.use(express.static(path.join(__dirname, "window")));
-  
+
   io_server.on("connection", (socket) => {
     let joinedRoom = null;
     let screen_stream_interval = null;
     let is_streaming_screen = false;
-    
+    let current_crop = { x: 0, y: 0, w: 1, h: 1 };
+
     const getWindowData = (windowId) => {
       const wId = parseInt(windowId, 10);
       let data = active_windows.get(wId);
@@ -67,7 +68,7 @@ function startMobileServer() {
       }
       return data;
     };
-    
+
     socket.on("register", async ({ windowId }) => {
       if (windowId) {
         const data = getWindowData(windowId);
@@ -75,11 +76,13 @@ function startMobileServer() {
           const actualWindowId = data.win.webContents.id;
           joinedRoom = `window_${actualWindowId}`;
           socket.join(joinedRoom);
-          console.log(`Socket client joined room: ${joinedRoom} (requested: ${windowId})`);
-          
+          console.log(
+            `Socket client joined room: ${joinedRoom} (requested: ${windowId})`,
+          );
+
           // Hide QR code modal in Electron window when mobile client connects
           sendToWindow(actualWindowId, "hide-qrcode");
-          
+
           let historyHtml = "";
           try {
             historyHtml = await data.win.webContents.executeJavaScript(`
@@ -108,7 +111,7 @@ function startMobileServer() {
         }
       }
     });
-    
+
     socket.on("run-user-command", ({ windowId, command }) => {
       const data = getWindowData(windowId);
       if (data) {
@@ -119,7 +122,7 @@ function startMobileServer() {
         });
       }
     });
-    
+
     socket.on("run-agent-prompt", ({ windowId, prompt, usePro }) => {
       const data = getWindowData(windowId);
       if (data) {
@@ -128,21 +131,21 @@ function startMobileServer() {
         runAgentLoop(data.session, prompt, usePro);
       }
     });
-    
+
     socket.on("shell-interrupt", ({ windowId }) => {
       const data = getWindowData(windowId);
       if (data) {
         data.session.interrupt();
       }
     });
-    
+
     socket.on("execute-slash-command", ({ windowId, command }) => {
       const data = getWindowData(windowId);
       if (data) {
         executeSlashCommandForWindow(data.win.webContents.id, command);
       }
     });
-    
+
     socket.on("request-state", async ({ windowId }) => {
       const data = getWindowData(windowId);
       if (data) {
@@ -159,9 +162,12 @@ function startMobileServer() {
             })()
           `);
         } catch (err) {
-          console.error("Failed to retrieve history HTML on request-state:", err);
+          console.error(
+            "Failed to retrieve history HTML on request-state:",
+            err,
+          );
         }
-         socket.emit("window-init", {
+        socket.emit("window-init", {
           windowId: actualWindowId,
           cwd: data.session.current_cwd,
           model: data.session.model,
@@ -174,14 +180,14 @@ function startMobileServer() {
         });
       }
     });
-    
+
     socket.on("toggle-debug-mode", ({ windowId }) => {
       const data = getWindowData(windowId);
       if (data) {
         toggleDebugMode(data.win);
       }
     });
-    
+
     socket.on("read-dir", ({ windowId, dirPath }, callback) => {
       const data = getWindowData(windowId);
       const base = data ? data.session.current_cwd : process.cwd();
@@ -210,10 +216,14 @@ function startMobileServer() {
         }
         if (callback) callback({ success: true, pinned_dirs: pinned_dirs });
       } else {
-        if (callback) callback({ success: false, error: "Directory not found in pinned list" });
+        if (callback)
+          callback({
+            success: false,
+            error: "Directory not found in pinned list",
+          });
       }
     });
-    
+
     socket.on("read-file-content", ({ windowId, filePath }, callback) => {
       const data = getWindowData(windowId);
       const base = data ? data.session.current_cwd : process.cwd();
@@ -225,37 +235,40 @@ function startMobileServer() {
         callback({ resolved, error: err.message, code: err.code });
       }
     });
-    
-    socket.on("save-file-content", async ({ windowId, filePath, content }, callback) => {
-      const data = getWindowData(windowId);
-      const base = data ? data.session.current_cwd : process.cwd();
-      const resolved = path.resolve(base, filePath);
-      try {
-        let formattedContent = content;
-        let formatted = false;
+
+    socket.on(
+      "save-file-content",
+      async ({ windowId, filePath, content }, callback) => {
+        const data = getWindowData(windowId);
+        const base = data ? data.session.current_cwd : process.cwd();
+        const resolved = path.resolve(base, filePath);
         try {
-          const prettier = require("prettier");
-          const fileInfo = await prettier.getFileInfo(resolved);
-          if (fileInfo && !fileInfo.ignored && fileInfo.inferredParser) {
-            const vscodeConfig = getVsCodePrettierConfig();
-            const projectConfig = await prettier.resolveConfig(resolved);
-            formattedContent = await prettier.format(content, {
-              ...vscodeConfig,
-              ...projectConfig,
-              parser: fileInfo.inferredParser,
-            });
-            formatted = true;
+          let formattedContent = content;
+          let formatted = false;
+          try {
+            const prettier = require("prettier");
+            const fileInfo = await prettier.getFileInfo(resolved);
+            if (fileInfo && !fileInfo.ignored && fileInfo.inferredParser) {
+              const vscodeConfig = getVsCodePrettierConfig();
+              const projectConfig = await prettier.resolveConfig(resolved);
+              formattedContent = await prettier.format(content, {
+                ...vscodeConfig,
+                ...projectConfig,
+                parser: fileInfo.inferredParser,
+              });
+              formatted = true;
+            }
+          } catch (prettierErr) {
+            console.error("Prettier formatting failed:", prettierErr);
           }
-        } catch (prettierErr) {
-          console.error("Prettier formatting failed:", prettierErr);
+          fs.writeFileSync(resolved, formattedContent, "utf8");
+          callback({ resolved, success: true, formatted, formattedContent });
+        } catch (err) {
+          callback({ resolved, error: err.message, code: err.code });
         }
-        fs.writeFileSync(resolved, formattedContent, "utf8");
-        callback({ resolved, success: true, formatted, formattedContent });
-      } catch (err) {
-        callback({ resolved, error: err.message, code: err.code });
-      }
-    });
-    
+      },
+    );
+
     socket.on("open-in-vs-code", ({ windowId, filePath }, callback) => {
       const data = getWindowData(windowId);
       const base = data ? data.session.current_cwd : process.cwd();
@@ -265,7 +278,7 @@ function startMobileServer() {
         else callback({ success: true });
       });
     });
-    
+
     socket.on("read-git-status", async ({ windowId }, callback) => {
       const data = getWindowData(windowId);
       const base = data ? data.session.current_cwd : process.cwd();
@@ -316,34 +329,42 @@ function startMobileServer() {
     socket.on("git-unstage-file", ({ windowId, filePath }, callback) => {
       const data = getWindowData(windowId);
       const base = data ? data.session.current_cwd : process.cwd();
-      exec(`git reset HEAD "${filePath}"`, { cwd: base }, (err, stdout, stderr) => {
-        if (err) callback({ error: stderr || err.message });
-        else callback({ success: true });
-      });
+      exec(
+        `git reset HEAD "${filePath}"`,
+        { cwd: base },
+        (err, stdout, stderr) => {
+          if (err) callback({ error: stderr || err.message });
+          else callback({ success: true });
+        },
+      );
     });
 
     socket.on("read-file-diff", ({ windowId, filePath }, callback) => {
       const data = getWindowData(windowId);
       const base = data ? data.session.current_cwd : process.cwd();
       const resolved = path.resolve(base, filePath);
-      exec(`git status --porcelain -- "${resolved}"`, { cwd: base }, (err, stdout, stderr) => {
-        if (err) {
-          callback({ resolved, error: stderr || err.message });
-          return;
-        }
-        const isUntracked = stdout.startsWith("??");
-        let diffCmd = `git diff HEAD -U999999 -- "${resolved}"`;
-        if (isUntracked) {
-          diffCmd = `git diff --no-index -U999999 -- /dev/null "${resolved}"`;
-        }
-        exec(diffCmd, { cwd: base }, (diffErr, diffStdout, diffStderr) => {
-          if (diffErr && diffErr.code !== 1 && diffErr.code !== 0) {
-            callback({ resolved, error: diffStderr || diffErr.message });
+      exec(
+        `git status --porcelain -- "${resolved}"`,
+        { cwd: base },
+        (err, stdout, stderr) => {
+          if (err) {
+            callback({ resolved, error: stderr || err.message });
             return;
           }
-          callback({ resolved, diff: diffStdout });
-        });
-      });
+          const isUntracked = stdout.startsWith("??");
+          let diffCmd = `git diff HEAD -U999999 -- "${resolved}"`;
+          if (isUntracked) {
+            diffCmd = `git diff --no-index -U999999 -- /dev/null "${resolved}"`;
+          }
+          exec(diffCmd, { cwd: base }, (diffErr, diffStdout, diffStderr) => {
+            if (diffErr && diffErr.code !== 1 && diffErr.code !== 0) {
+              callback({ resolved, error: diffStderr || diffErr.message });
+              return;
+            }
+            callback({ resolved, diff: diffStdout });
+          });
+        },
+      );
     });
 
     socket.on("start-screen-stream", () => {
@@ -355,14 +376,76 @@ function startMobileServer() {
       }
       const data = getWindowData(null);
       if (data) {
-        sendToWindow(data.win.webContents.id, "start-screen-stream", { socketId: socket.id });
+        sendToWindow(data.win.webContents.id, "start-screen-stream", {
+          socketId: socket.id,
+        });
       }
+
+      // Query initial cursor position to sync with mobile
+      exec("hyprctl cursorpos", (err, stdout) => {
+        if (!err && stdout) {
+          const parts = stdout.trim().split(/,\s*/);
+          if (parts.length === 2) {
+            const curX = parseFloat(parts[0]);
+            const curY = parseFloat(parts[1]);
+            const { screen } = require("electron");
+            const primaryDisplay = screen.getPrimaryDisplay();
+            const { width, height } = primaryDisplay.size;
+            socket.emit("cursor-sync", { x: curX / width, y: curY / height });
+          }
+        }
+      });
+    });
+
+    socket.on("mouse-move", ({ x, y }) => {
+      const { screen } = require("electron");
+      const primaryDisplay = screen.getPrimaryDisplay();
+      const { width, height } = primaryDisplay.size;
+      const absX = Math.round(x * width);
+      const absY = Math.round(y * height);
+      exec(`hyprctl dispatch movecursor ${absX} ${absY}`);
+    });
+
+    socket.on("mouse-click", ({ x, y }) => {
+      const { screen } = require("electron");
+      const primaryDisplay = screen.getPrimaryDisplay();
+      const { width, height } = primaryDisplay.size;
+      const absX = Math.round(x * width);
+      const absY = Math.round(y * height);
+      exec(`hyprctl dispatch movecursor ${absX} ${absY}`, (err) => {
+        exec("ydotool click 0xC0", (ydotoolErr) => {
+          if (ydotoolErr) {
+            exec("xdotool click 1", (xdotoolErr) => {
+              if (xdotoolErr) {
+                console.error(
+                  "Failed to simulate mouse click: neither ydotool nor xdotool succeeded.",
+                );
+              }
+            });
+          }
+        });
+      });
     });
 
     socket.on("webrtc-signal", ({ signal }) => {
       const data = getWindowData(null);
       if (data) {
-        sendToWindow(data.win.webContents.id, "webrtc-signal", { socketId: socket.id, signal });
+        sendToWindow(data.win.webContents.id, "webrtc-signal", {
+          socketId: socket.id,
+          signal,
+        });
+      }
+    });
+
+    socket.on("update-crop-region", ({ region }) => {
+      current_crop = region;
+      socket.emit("stream-crop-updated", { region });
+      const data = getWindowData(null);
+      if (data) {
+        sendToWindow(data.win.webContents.id, "update-crop-region", {
+          socketId: socket.id,
+          region,
+        });
       }
     });
 
@@ -372,45 +455,81 @@ function startMobileServer() {
       if (screen_stream_interval) {
         clearTimeout(screen_stream_interval);
       }
-      
+
       const fallbackCapture = () => {
         if (!is_streaming_screen) return;
         const { desktopCapturer } = require("electron");
-        desktopCapturer.getSources({ types: ["screen"], thumbnailSize: { width: 1280, height: 720 } }).then(sources => {
-          if (sources.length > 0 && is_streaming_screen) {
-            const source = sources[0];
-            const jpeg_buffer = source.thumbnail.toJPEG(80);
-            const base64_str = jpeg_buffer.toString("base64");
-            const data_url = `data:image/jpeg;base64,${base64_str}`;
-            socket.emit("screen-frame", { dataUrl: data_url });
-          }
-          if (is_streaming_screen) {
-            screen_stream_interval = setTimeout(captureAndSend, 0);
-          }
-        }).catch(err => {
-          console.error("Screen capture failed:", err);
-          if (is_streaming_screen) {
-            screen_stream_interval = setTimeout(captureAndSend, 1000);
-          }
-        });
+        desktopCapturer
+          .getSources({
+            types: ["screen"],
+            thumbnailSize: { width: 1280, height: 720 },
+          })
+          .then((sources) => {
+            if (sources.length > 0 && is_streaming_screen) {
+              const source = sources[0];
+              const jpeg_buffer = source.thumbnail.toJPEG(80);
+              const base64_str = jpeg_buffer.toString("base64");
+              const data_url = `data:image/jpeg;base64,${base64_str}`;
+              socket.emit("screen-frame", { dataUrl: data_url });
+            }
+            if (is_streaming_screen) {
+              screen_stream_interval = setTimeout(captureAndSend, 0);
+            }
+          })
+          .catch((err) => {
+            console.error("Screen capture failed:", err);
+            if (is_streaming_screen) {
+              screen_stream_interval = setTimeout(captureAndSend, 1000);
+            }
+          });
       };
 
       const captureAndSend = () => {
         if (!is_streaming_screen) return;
         if (process.platform === "linux") {
+          const { screen } = require("electron");
+          const primaryDisplay = screen.getPrimaryDisplay();
+          const { width, height } = primaryDisplay.size;
+          const scale = primaryDisplay.scaleFactor;
+          const screenW = Math.round(width * scale);
+          const screenH = Math.round(height * scale);
+
+          const crop = current_crop || { x: 0, y: 0, w: 1, h: 1 };
+          const pixelX = Math.round(crop.x * screenW);
+          const pixelY = Math.round(crop.y * screenH);
+          let pixelW = Math.round(crop.w * screenW);
+          let pixelH = Math.round(crop.h * screenH);
+
+          if (pixelW <= 0) pixelW = screenW;
+          if (pixelH <= 0) pixelH = screenH;
+
+          const geometry = `${pixelX},${pixelY} ${pixelW}x${pixelH}`;
+
+          let vfFilter = "";
+          const maxW = 1920;
+          if (pixelW > maxW) {
+            vfFilter = `-vf scale=${maxW}:-1`;
+          }
+
+          const cmd = `grim -g "${geometry}" -t ppm - | ffmpeg -y -f image2pipe -vcodec ppm -i - ${vfFilter} -q:v 10 -f image2pipe -`;
+
           const { exec } = require("child_process");
-          exec('grim -t ppm - | ffmpeg -y -f image2pipe -vcodec ppm -i - -vf scale=480:-1:flags=neighbor -q:v 10 -f image2pipe -', { encoding: 'buffer', maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
-            if (!err && stdout && stdout.length > 0 && is_streaming_screen) {
-              const base64_str = stdout.toString("base64");
-              const data_url = `data:image/jpeg;base64,${base64_str}`;
-              socket.emit("screen-frame", { dataUrl: data_url });
-              if (is_streaming_screen) {
-                screen_stream_interval = setTimeout(captureAndSend, 0);
+          exec(
+            cmd,
+            { encoding: "buffer", maxBuffer: 10 * 1024 * 1024 },
+            (err, stdout, stderr) => {
+              if (!err && stdout && stdout.length > 0 && is_streaming_screen) {
+                const base64_str = stdout.toString("base64");
+                const data_url = `data:image/jpeg;base64,${base64_str}`;
+                socket.emit("screen-frame", { dataUrl: data_url });
+                if (is_streaming_screen) {
+                  screen_stream_interval = setTimeout(captureAndSend, 0);
+                }
+              } else {
+                fallbackCapture();
               }
-            } else {
-              fallbackCapture();
-            }
-          });
+            },
+          );
         } else {
           fallbackCapture();
         }
@@ -428,7 +547,9 @@ function startMobileServer() {
       }
       const data = getWindowData(null);
       if (data) {
-        sendToWindow(data.win.webContents.id, "stop-screen-stream", { socketId: socket.id });
+        sendToWindow(data.win.webContents.id, "stop-screen-stream", {
+          socketId: socket.id,
+        });
       }
     });
 
@@ -441,16 +562,20 @@ function startMobileServer() {
       }
       const data = getWindowData(null);
       if (data) {
-        sendToWindow(data.win.webContents.id, "stop-screen-stream", { socketId: socket.id });
+        sendToWindow(data.win.webContents.id, "stop-screen-stream", {
+          socketId: socket.id,
+        });
       }
     });
   });
-  
+
   return new Promise((resolve) => {
     httpServer.listen(0, "0.0.0.0", () => {
       server_port = httpServer.address().port;
       web_server = httpServer;
-      console.log(`Mobile Express/Socket.io server started on port ${server_port}`);
+      console.log(
+        `Mobile Express/Socket.io server started on port ${server_port}`,
+      );
       resolve(server_port);
     });
   });
@@ -492,11 +617,14 @@ async function executeSlashCommandForWindow(windowId, command_str) {
       const port = await startMobileServer();
       const ip = getLocalIpAddress();
       const url = `http://${ip}:${port}/?windowId=${windowId}`;
-      const qrCodeDataUrl = await QRCode.toDataURL(url, { margin: 0, width: 512 });
-      
+      const qrCodeDataUrl = await QRCode.toDataURL(url, {
+        margin: 0,
+        width: 512,
+      });
+
       // Send the QR code back to the Electron window
       sendToWindow(windowId, "show-qrcode", { url, qrCodeDataUrl });
-      
+
       // Print a message to the shell output
       sendToWindow(windowId, "shell-output", {
         text: `Mobile connection server running at: ${url}\n`,
@@ -521,7 +649,7 @@ async function executeSlashCommandForWindow(windowId, command_str) {
       const isFS = data.win.isFullScreen();
       const nextFS = !isFS;
       data.win.setFullScreen(nextFS);
-      
+
       sendToWindow(windowId, "shell-output", {
         text: `Window is now ${nextFS ? "fullscreen" : "windowed"}.\n`,
         is_stderr: false,
@@ -790,7 +918,10 @@ class ShellSession {
       if (delim_index !== -1) {
         const prefix = line.substring(0, delim_index);
         if (prefix) {
-          sendToWindow(this.webContentsId, "shell-output", { text: prefix, is_stderr });
+          sendToWindow(this.webContentsId, "shell-output", {
+            text: prefix,
+            is_stderr,
+          });
         }
         const suffix = line.substring(delim_index);
         const match = suffix.match(/__NONO_CMD_END__ (\d+) (.*)/);
@@ -882,8 +1013,11 @@ async function performWebSearch(query, api_key, model_name) {
   try {
     const config = loadConfig();
     const active_model = model_name || config.flash_model || "gemini-3.5-flash";
-    const is_new_model = active_model.includes("gemini-3") || active_model.includes("gemini-2.5");
-    const tool_obj = is_new_model ? { google_search: {} } : { google_search_retrieval: {} };
+    const is_new_model =
+      active_model.includes("gemini-3") || active_model.includes("gemini-2.5");
+    const tool_obj = is_new_model
+      ? { google_search: {} }
+      : { google_search_retrieval: {} };
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${active_model}:generateContent?key=${api_key}`;
     const payload = {
@@ -892,25 +1026,27 @@ async function performWebSearch(query, api_key, model_name) {
           role: "user",
           parts: [
             {
-              text: `Perform a search for the following query and summarize the key findings with sources: ${query}`
-            }
-          ]
-        }
+              text: `Perform a search for the following query and summarize the key findings with sources: ${query}`,
+            },
+          ],
+        },
       ],
-      tools: [tool_obj]
+      tools: [tool_obj],
     };
 
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
       const error_text = await response.text();
-      return { error: `Gemini API returned status ${response.status}: ${error_text}` };
+      return {
+        error: `Gemini API returned status ${response.status}: ${error_text}`,
+      };
     }
 
     const data = await response.json();
@@ -919,10 +1055,13 @@ async function performWebSearch(query, api_key, model_name) {
       const metadata = data.candidates[0].groundingMetadata || {};
       return {
         answer: text,
-        groundingMetadata: metadata
+        groundingMetadata: metadata,
       };
     } else {
-      return { error: "No candidates returned from Gemini API", raw_response: data };
+      return {
+        error: "No candidates returned from Gemini API",
+        raw_response: data,
+      };
     }
   } catch (err) {
     console.error("Web Search Error:", err.message);
@@ -1333,7 +1472,8 @@ const tools_definition = [
     type: "function",
     function: {
       name: "web_search",
-      description: "Searches the web for the given query using Google Search grounding and returns grounded answers with sources.",
+      description:
+        "Searches the web for the given query using Google Search grounding and returns grounded answers with sources.",
       parameters: {
         type: "object",
         properties: {
@@ -1351,7 +1491,8 @@ const tools_definition = [
 // Agent execution loop
 async function runAgentLoop(session, prompt, usePro) {
   const web_contents = {
-    send: (channel, ...args) => sendToWindow(session.webContentsId, channel, ...args)
+    send: (channel, ...args) =>
+      sendToWindow(session.webContentsId, channel, ...args),
   };
   const config = loadConfig();
   const model_name = usePro ? config.pro_model : config.flash_model;
@@ -1494,7 +1635,11 @@ async function runAgentLoop(session, prompt, usePro) {
             }
             tool_result = JSON.stringify(res);
           } else if (name === "web_search") {
-            const res = await performWebSearch(args.query, config.api_key, config.flash_model);
+            const res = await performWebSearch(
+              args.query,
+              config.api_key,
+              config.flash_model,
+            );
             if (res.error) {
               is_error = true;
             }
@@ -1711,10 +1856,20 @@ ipcMain.on("request-state", (event) => {
 });
 
 ipcMain.handle("get-screen-source-id", async () => {
-  const { desktopCapturer } = require("electron");
+  const { desktopCapturer, screen } = require("electron");
   const sources = await desktopCapturer.getSources({ types: ["screen"] });
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width, height } = primaryDisplay.size;
+  const scale = primaryDisplay.scaleFactor;
+  const physicalW = Math.round(width * scale);
+  const physicalH = Math.round(height * scale);
+
   if (sources.length > 0) {
-    return sources[0].id;
+    return {
+      id: sources[0].id,
+      width: physicalW,
+      height: physicalH,
+    };
   }
   return null;
 });
@@ -1722,6 +1877,12 @@ ipcMain.handle("get-screen-source-id", async () => {
 ipcMain.on("webrtc-signal-to-mobile", (event, socketId, signal) => {
   if (io_server) {
     io_server.to(socketId).emit("webrtc-signal", { signal });
+  }
+});
+
+ipcMain.on("stream-crop-updated", (event, socketId, region) => {
+  if (io_server) {
+    io_server.to(socketId).emit("stream-crop-updated", { region });
   }
 });
 
@@ -1819,11 +1980,11 @@ ipcMain.handle("read-git-status", async (event) => {
         resolve({ error: stderr || err.message });
         return;
       }
-      
+
       const lines = stdout.split("\n");
       const staged = [];
       const unstaged = [];
-      
+
       for (const line of lines) {
         if (!line.trim()) continue;
         const x = line[0];
@@ -1832,7 +1993,7 @@ ipcMain.handle("read-git-status", async (event) => {
         if (filePath.startsWith('"') && filePath.endsWith('"')) {
           filePath = filePath.substring(1, filePath.length - 1);
         }
-        
+
         // Staged status (Index)
         if (x !== " " && x !== "?") {
           let type = "edit";
@@ -1840,7 +2001,7 @@ ipcMain.handle("read-git-status", async (event) => {
           else if (x === "D") type = "deletion";
           staged.push({ path: filePath, type });
         }
-        
+
         // Unstaged status (Worktree)
         if (y !== " " && y !== undefined) {
           let type = "edit";
@@ -1851,7 +2012,7 @@ ipcMain.handle("read-git-status", async (event) => {
           unstaged.push({ path: filePath, type: "addition" });
         }
       }
-      
+
       resolve({ staged, unstaged });
     });
   });
@@ -1872,10 +2033,14 @@ ipcMain.handle("git-unstage-file", async (event, filePath) => {
   const data = active_windows.get(event.sender.id);
   const base = data ? data.session.current_cwd : process.cwd();
   return new Promise((resolve) => {
-    exec(`git reset HEAD "${filePath}"`, { cwd: base }, (err, stdout, stderr) => {
-      if (err) resolve({ error: stderr || err.message });
-      else resolve({ success: true });
-    });
+    exec(
+      `git reset HEAD "${filePath}"`,
+      { cwd: base },
+      (err, stdout, stderr) => {
+        if (err) resolve({ error: stderr || err.message });
+        else resolve({ success: true });
+      },
+    );
   });
 });
 
@@ -1883,26 +2048,29 @@ ipcMain.handle("read-file-diff", async (event, filePath) => {
   const data = active_windows.get(event.sender.id);
   const base = data ? data.session.current_cwd : process.cwd();
   const resolved = path.resolve(base, filePath);
-  
+
   return new Promise((resolve) => {
-    exec(`git status --porcelain -- "${resolved}"`, { cwd: base }, (err, stdout, stderr) => {
-      if (err) {
-        resolve({ resolved, error: stderr || err.message });
-        return;
-      }
-      const isUntracked = stdout.startsWith("??");
-      let diffCmd = `git diff HEAD -U999999 -- "${resolved}"`;
-      if (isUntracked) {
-        diffCmd = `git diff --no-index -U999999 -- /dev/null "${resolved}"`;
-      }
-      exec(diffCmd, { cwd: base }, (diffErr, diffStdout, diffStderr) => {
-        if (diffErr && diffErr.code !== 1 && diffErr.code !== 0) {
-          resolve({ resolved, error: diffStderr || diffErr.message });
+    exec(
+      `git status --porcelain -- "${resolved}"`,
+      { cwd: base },
+      (err, stdout, stderr) => {
+        if (err) {
+          resolve({ resolved, error: stderr || err.message });
           return;
         }
-        resolve({ resolved, diff: diffStdout });
-      });
-    });
+        const isUntracked = stdout.startsWith("??");
+        let diffCmd = `git diff HEAD -U999999 -- "${resolved}"`;
+        if (isUntracked) {
+          diffCmd = `git diff --no-index -U999999 -- /dev/null "${resolved}"`;
+        }
+        exec(diffCmd, { cwd: base }, (diffErr, diffStdout, diffStderr) => {
+          if (diffErr && diffErr.code !== 1 && diffErr.code !== 0) {
+            resolve({ resolved, error: diffStderr || diffErr.message });
+            return;
+          }
+          resolve({ resolved, diff: diffStdout });
+        });
+      },
+    );
   });
 });
-
