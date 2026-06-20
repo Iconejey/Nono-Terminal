@@ -348,6 +348,26 @@ function startMobileServer() {
 
     socket.on("start-screen-stream", () => {
       console.log("Socket client requested screen stream start");
+      is_streaming_screen = false;
+      if (screen_stream_interval) {
+        clearTimeout(screen_stream_interval);
+        screen_stream_interval = null;
+      }
+      const data = getWindowData(null);
+      if (data) {
+        sendToWindow(data.win.webContents.id, "start-screen-stream", { socketId: socket.id });
+      }
+    });
+
+    socket.on("webrtc-signal", ({ signal }) => {
+      const data = getWindowData(null);
+      if (data) {
+        sendToWindow(data.win.webContents.id, "webrtc-signal", { socketId: socket.id, signal });
+      }
+    });
+
+    socket.on("request-fallback-stream", () => {
+      console.log("Socket client requested fallback frame-based screen stream");
       is_streaming_screen = true;
       if (screen_stream_interval) {
         clearTimeout(screen_stream_interval);
@@ -406,6 +426,10 @@ function startMobileServer() {
         clearTimeout(screen_stream_interval);
         screen_stream_interval = null;
       }
+      const data = getWindowData(null);
+      if (data) {
+        sendToWindow(data.win.webContents.id, "stop-screen-stream", { socketId: socket.id });
+      }
     });
 
     socket.on("disconnect", () => {
@@ -414,6 +438,10 @@ function startMobileServer() {
       if (screen_stream_interval) {
         clearTimeout(screen_stream_interval);
         screen_stream_interval = null;
+      }
+      const data = getWindowData(null);
+      if (data) {
+        sendToWindow(data.win.webContents.id, "stop-screen-stream", { socketId: socket.id });
       }
     });
   });
@@ -1679,6 +1707,21 @@ ipcMain.on("request-state", (event) => {
       pinnedDirs: getPinnedDirectories(),
       homeDir: os.homedir(),
     });
+  }
+});
+
+ipcMain.handle("get-screen-source-id", async () => {
+  const { desktopCapturer } = require("electron");
+  const sources = await desktopCapturer.getSources({ types: ["screen"] });
+  if (sources.length > 0) {
+    return sources[0].id;
+  }
+  return null;
+});
+
+ipcMain.on("webrtc-signal-to-mobile", (event, socketId, signal) => {
+  if (io_server) {
+    io_server.to(socketId).emit("webrtc-signal", { signal });
   }
 });
 

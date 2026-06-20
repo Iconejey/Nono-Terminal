@@ -29,6 +29,11 @@ contextBridge.exposeInMainWorld('api', {
   readGitStatus: () => ipcRenderer.invoke('read-git-status'),
   stageFile: (filePath) => ipcRenderer.invoke('git-stage-file', filePath),
   unstageFile: (filePath) => ipcRenderer.invoke('git-unstage-file', filePath),
-  readFileDiff: (filePath) => ipcRenderer.invoke('read-file-diff', filePath)
+  readFileDiff: (filePath) => ipcRenderer.invoke('read-file-diff', filePath),
+  getScreenSourceId: () => ipcRenderer.invoke('get-screen-source-id'),
+  sendWebRtcSignalToMobile: (socketId, signal) => ipcRenderer.send('webrtc-signal-to-mobile', socketId, signal),
+  onWebRtcSignal: (callback) => ipcRenderer.on('webrtc-signal', (event, info) => callback(info)),
+  onStartScreenStream: (callback) => ipcRenderer.on('start-screen-stream', (event, info) => callback(info)),
+  onStopScreenStream: (callback) => ipcRenderer.on('stop-screen-stream', (event, info) => callback(info))
 });
 

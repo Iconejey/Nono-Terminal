@@ -610,6 +610,20 @@ function submitInput(text, usePro = false) {
 					if (window.api.stopScreenStream) {
 						window.api.stopScreenStream();
 					}
+
+					// WebRTC Mobile cleanup
+					if (mobilePeerConnection) {
+						mobilePeerConnection.close();
+						mobilePeerConnection = null;
+					}
+					if (webrtcTimeout) {
+						clearTimeout(webrtcTimeout);
+						webrtcTimeout = null;
+					}
+					const videoElem = document.getElementById('screen-stream-video');
+					if (videoElem) {
+						videoElem.srcObject = null;
+					}
 					
 					const container = document.getElementById('terminal-chat-container');
 					const active_block = document.getElementById('active-chat-block');
@@ -620,9 +634,29 @@ function submitInput(text, usePro = false) {
 					appendNewPromptBlock(current_cwd);
 				} else {
 					container_elem.style.display = 'block';
+
+					// Default to showing video element first during negotiation
+					const img = document.getElementById('screen-stream-img');
+					const video = document.getElementById('screen-stream-video');
+					if (img) img.style.display = 'none';
+					if (video) video.style.display = 'block';
+
 					if (window.api.startScreenStream) {
 						window.api.startScreenStream();
 					}
+
+					// Set a watchdog timeout: if WebRTC isn't connected in 3 seconds, request fallback image stream
+					if (webrtcTimeout) clearTimeout(webrtcTimeout);
+					webrtcTimeout = setTimeout(() => {
+						if (!mobilePeerConnection || (mobilePeerConnection.iceConnectionState !== 'connected' && mobilePeerConnection.iceConnectionState !== 'completed')) {
+							console.log("Mobile WebRTC: Connection timeout, requesting fallback JPEG stream");
+							if (img) img.style.display = 'block';
+							if (video) video.style.display = 'none';
+							if (window.api.requestFallbackStream) {
+								window.api.requestFallbackStream();
+							}
+						}
+					}, 3000);
 
 					const container = document.getElementById('terminal-chat-container');
 					const active_block = document.getElementById('active-chat-block');
@@ -995,10 +1029,166 @@ if (window.api.onHideQrCode) {
 if (window.api.onScreenFrame) {
 	window.api.onScreenFrame(({ dataUrl }) => {
 		const img = document.getElementById('screen-stream-img');
+		const video = document.getElementById('screen-stream-video');
 		if (img) {
+			img.style.display = 'block';
 			img.src = dataUrl;
 		}
+		if (video) {
+			video.style.display = 'none';
+		}
 	});
+}
+
+// WebRTC Screen Streaming Logic
+const is_mobile = !window.process || !window.process.versions || !window.process.versions.electron;
+
+let localScreenStream = null;
+let desktopPeerConnections = new Map(); // socketId -> RTCPeerConnection
+let mobilePeerConnection = null;
+let webrtcTimeout = null;
+
+if (!is_mobile) {
+	// Desktop (Sender) WebRTC implementation
+	if (window.api.onStartScreenStream) {
+		window.api.onStartScreenStream(async ({ socketId }) => {
+			console.log("Desktop WebRTC: received start-screen-stream for socket:", socketId);
+			try {
+				if (desktopPeerConnections.has(socketId)) {
+					desktopPeerConnections.get(socketId).close();
+					desktopPeerConnections.delete(socketId);
+				}
+
+				if (!localScreenStream) {
+					const sourceId = await window.api.getScreenSourceId();
+					localScreenStream = await navigator.mediaDevices.getUserMedia({
+						audio: false,
+						video: {
+							mandatory: {
+								chromeMediaSource: 'desktop',
+								chromeMediaSourceId: sourceId,
+								minWidth: 640,
+								maxWidth: 1280,
+								minHeight: 480,
+								maxHeight: 720,
+								maxFrameRate: 30
+							}
+						}
+					});
+				}
+
+				const pc = new RTCPeerConnection({
+					iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+				});
+
+				desktopPeerConnections.set(socketId, pc);
+
+				localScreenStream.getTracks().forEach(track => pc.addTrack(track, localScreenStream));
+
+				pc.onicecandidate = (event) => {
+					if (event.candidate) {
+						window.api.sendWebRtcSignalToMobile(socketId, { candidate: event.candidate });
+					}
+				};
+
+				const offer = await pc.createOffer();
+				await pc.setLocalDescription(offer);
+				window.api.sendWebRtcSignalToMobile(socketId, { sdp: offer });
+
+			} catch (err) {
+				console.error("Desktop WebRTC setup failed:", err);
+			}
+		});
+	}
+
+	if (window.api.onStopScreenStream) {
+		window.api.onStopScreenStream(({ socketId }) => {
+			console.log("Desktop WebRTC: stopping stream for socket:", socketId);
+			const pc = desktopPeerConnections.get(socketId);
+			if (pc) {
+				pc.close();
+				desktopPeerConnections.delete(socketId);
+			}
+			if (desktopPeerConnections.size === 0 && localScreenStream) {
+				localScreenStream.getTracks().forEach(track => track.stop());
+				localScreenStream = null;
+			}
+		});
+	}
+
+	if (window.api.onWebRtcSignal) {
+		window.api.onWebRtcSignal(({ socketId, signal }) => {
+			const pc = desktopPeerConnections.get(socketId);
+			if (!pc) return;
+
+			if (signal.sdp) {
+				pc.setRemoteDescription(new RTCSessionDescription(signal.sdp))
+					.catch(err => console.error("Desktop: failed to set remote description:", err));
+			} else if (signal.candidate) {
+				pc.addIceCandidate(new RTCIceCandidate(signal.candidate))
+					.catch(err => console.error("Desktop: failed to add ICE candidate:", err));
+			}
+		});
+	}
+} else {
+	// Mobile (Receiver) WebRTC implementation
+	if (window.api.onWebRtcSignal) {
+		window.api.onWebRtcSignal(async ({ signal }) => {
+			console.log("Mobile WebRTC: received signal:", signal);
+			try {
+				if (signal.sdp && signal.sdp.type === 'offer') {
+					if (mobilePeerConnection) {
+						mobilePeerConnection.close();
+					}
+
+					mobilePeerConnection = new RTCPeerConnection({
+						iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+					});
+
+					mobilePeerConnection.onicecandidate = (event) => {
+						if (event.candidate && window.api.sendWebRtcSignal) {
+							window.api.sendWebRtcSignal({ candidate: event.candidate });
+						}
+					};
+
+					mobilePeerConnection.oniceconnectionstatechange = () => {
+						console.log("Mobile WebRTC: Connection state changed to:", mobilePeerConnection.iceConnectionState);
+						if (mobilePeerConnection.iceConnectionState === 'connected' || mobilePeerConnection.iceConnectionState === 'completed') {
+							if (webrtcTimeout) {
+								clearTimeout(webrtcTimeout);
+								webrtcTimeout = null;
+							}
+							const img = document.getElementById('screen-stream-img');
+							const video = document.getElementById('screen-stream-video');
+							if (img) img.style.display = 'none';
+							if (video) video.style.display = 'block';
+						}
+					};
+
+					mobilePeerConnection.ontrack = (event) => {
+						console.log("Mobile WebRTC: received track");
+						const videoElem = document.getElementById('screen-stream-video');
+						if (videoElem) {
+							videoElem.srcObject = event.streams[0];
+							videoElem.play().catch(err => console.error("Mobile play failed:", err));
+						}
+					};
+
+					await mobilePeerConnection.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+					const answer = await mobilePeerConnection.createAnswer();
+					await mobilePeerConnection.setLocalDescription(answer);
+
+					if (window.api.sendWebRtcSignal) {
+						window.api.sendWebRtcSignal({ sdp: answer });
+					}
+				} else if (signal.candidate && mobilePeerConnection) {
+					await mobilePeerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
+				}
+			} catch (err) {
+				console.error("Mobile WebRTC processing failed:", err);
+			}
+		});
+	}
 }
 
 function closeMobileModal() {
