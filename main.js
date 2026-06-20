@@ -1,4 +1,10 @@
 const { app, BrowserWindow, Menu, ipcMain, shell } = require("electron");
+
+// Automatically disable GPU memory buffers for video capture on Linux to prevent EGL/DMA-BUF format mismatch errors during screen sharing
+if (process.platform === "linux") {
+  app.commandLine.appendSwitch("disable-video-capture-use-gpu-memory-buffer");
+}
+
 const { spawn, exec } = require("child_process");
 const fs = require("fs");
 const path = require("path");
@@ -345,7 +351,7 @@ function startMobileServer() {
         clearInterval(screen_stream_interval);
       }
       
-      const captureAndSend = () => {
+      const fallbackCapture = () => {
         const { desktopCapturer } = require("electron");
         desktopCapturer.getSources({ types: ["screen"], thumbnailSize: { width: 1280, height: 720 } }).then(sources => {
           if (sources.length > 0) {
@@ -358,6 +364,23 @@ function startMobileServer() {
         }).catch(err => {
           console.error("Screen capture failed:", err);
         });
+      };
+
+      const captureAndSend = () => {
+        if (process.platform === "linux") {
+          const { exec } = require("child_process");
+          exec('grim - | convert - -resize 1280x720 -quality 80 jpeg:-', { encoding: 'buffer', maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
+            if (!err && stdout && stdout.length > 0) {
+              const base64_str = stdout.toString("base64");
+              const data_url = `data:image/jpeg;base64,${base64_str}`;
+              socket.emit("screen-frame", { dataUrl: data_url });
+            } else {
+              fallbackCapture();
+            }
+          });
+        } else {
+          fallbackCapture();
+        }
       };
 
       captureAndSend();

@@ -14,8 +14,18 @@ Nono-Terminal is an Electron-based persistent terminal emulator integrated with 
 - Better file edit output print.
 - /web {query} slash command to do a web search
 - /files slash command to toggle a file explorer view and navigate the workspace files.
-- /screen on mobile devices to toggle the full computer screen streaming view at the top of the app.
-- /fullscreen for mobile
+
+### Screen sharing mode
+
+- Mouse mode with touch gestures on touch area to :
+    - Move the mouse with single finger drag.
+    - Click with single finger tap.
+    - Right click with two finger tap.
+    - Scroll with two finger drag (vertical and horizontal).
+    - Pinch to zoom in and out (zooming towards mouse cursor position, moving mouse will also move the zoomed in view).
+- Dragging up/down on screen to change aspect ratio of the screen view. Double tap on the screen to reset the aspect ratio to desktop default.
+- Input mode that allow to type text on mobile and then send it to the computer screen view.
+- Keyboard shortcuts mode with mobile keyboard, ctrl/alt/shift buttons and
 
 ## Architecture & Technical Stack
 
