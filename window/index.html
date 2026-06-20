@@ -30,6 +30,7 @@
 						onWindowInit: callback => socketPromise.then(socket => socket.on('window-init', callback)),
 						onPinnedDirsUpdated: callback => socketPromise.then(socket => socket.on('pinned-dirs-updated', callback)),
 						onShowQrCode: callback => socketPromise.then(socket => socket.on('show-qrcode', callback)),
+						onHideQrCode: callback => socketPromise.then(socket => socket.on('hide-qrcode', callback)),
 						onShellCommandStart: callback => socketPromise.then(socket => socket.on('shell-command-start', callback)),
 						onAgentPromptStart: callback => socketPromise.then(socket => socket.on('agent-prompt-start', callback)),
 						executeSlashCommand: command => socketPromise.then(socket => socket.emit('execute-slash-command', { windowId: window.api.windowId, command })),

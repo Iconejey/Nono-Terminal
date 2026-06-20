@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('api', {
   onAgentStatus: (callback) => ipcRenderer.on('agent-status', (event, status) => callback(status)),
   onWindowInit: (callback) => ipcRenderer.on('window-init', (event, info) => callback(info)),
   onShowQrCode: (callback) => ipcRenderer.on('show-qrcode', (event, info) => callback(info)),
+  onHideQrCode: (callback) => ipcRenderer.on('hide-qrcode', (event) => callback()),
   onShellCommandStart: (callback) => ipcRenderer.on('shell-command-start', (event, info) => callback(info)),
   onAgentPromptStart: (callback) => ipcRenderer.on('agent-prompt-start', (event, info) => callback(info)),
   executeSlashCommand: (command) => ipcRenderer.send('execute-slash-command', command),

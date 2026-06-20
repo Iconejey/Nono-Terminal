@@ -70,6 +70,9 @@ function startMobileServer() {
           socket.join(joinedRoom);
           console.log(`Socket client joined room: ${joinedRoom} (requested: ${windowId})`);
           
+          // Hide QR code modal in Electron window when mobile client connects
+          sendToWindow(actualWindowId, "hide-qrcode");
+          
           let historyHtml = "";
           try {
             historyHtml = await data.win.webContents.executeJavaScript(`

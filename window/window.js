@@ -955,6 +955,12 @@ window.api.onShowQrCode(({ url, qrCodeDataUrl }) => {
 	document.body.classList.add('mobile-active');
 });
 
+if (window.api.onHideQrCode) {
+	window.api.onHideQrCode(() => {
+		closeMobileModal();
+	});
+}
+
 if (window.api.onScreenFrame) {
 	window.api.onScreenFrame(({ dataUrl }) => {
 		const img = document.getElementById('screen-stream-img');

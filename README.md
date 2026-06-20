@@ -15,6 +15,7 @@ Nono-Terminal is an Electron-based persistent terminal emulator integrated with 
 - /web {query} slash command to do a web search
 - /files slash command to toggle a file explorer view and navigate the workspace files.
 - /screen on mobile devices to toggle the full computer screen streaming view at the top of the app.
+- /fullscreen for mobile
 
 ## Architecture & Technical Stack
 
