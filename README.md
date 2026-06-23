@@ -24,8 +24,12 @@ Nono-Terminal is an Electron-based persistent terminal emulator integrated with 
     - Scroll with two finger drag (vertical and horizontal).
     - Pinch to zoom in and out (zooming towards mouse cursor position, moving mouse will also move the zoomed in view).
 - Dragging up/down on screen to change aspect ratio of the screen view. Double tap on the screen to reset the aspect ratio to desktop default.
-- Input mode that allow to type text on mobile and then send it to the computer screen view.
-- Keyboard shortcuts mode with mobile keyboard, ctrl/alt/shift buttons and
+- /type slash command to give a text input box to send text to the remote machine.
+- /key-shortcut slash command to show keyboard and modifier keys to make a shortcut key combination to send to the remote machine.
+
+### IONOS web app
+
+- A server running on the IONOS server that serves the Nono-Terminal web app to be accessed from any device. No need for QR code scanning, the web app will scan the local network for the Nono-Terminal electron app and connect to it automatically, listing all the available Nono-Terminal windows to connect to.
 
 ## Architecture & Technical Stack
 

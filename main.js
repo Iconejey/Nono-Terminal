@@ -82,6 +82,31 @@ function sendHyprlandCommand(cmd) {
   }
 }
 
+function performMouseClick() {
+  exec("ydotool click 0xC0", (ydotoolErr) => {
+    if (!ydotoolErr) return;
+    exec("wlrctl pointer click", (wlrctlErr) => {
+      if (!wlrctlErr) return;
+      exec("echo 'click left' | dotool", (dotoolErr) => {
+        if (!dotoolErr) return;
+        exec("xdotool click 1", (xdotoolErr) => {
+          if (!xdotoolErr) return;
+          console.error(
+            "Failed to simulate mouse click: ydotool, wlrctl, dotool, and xdotool all failed.\n" +
+            `  - ydotool error: ${ydotoolErr.message.trim()}\n` +
+            `  - wlrctl error: ${wlrctlErr.message.trim()}\n` +
+            `  - dotool error: ${dotoolErr.message.trim()}\n` +
+            `  - xdotool error: ${xdotoolErr.message.trim()}\n\n` +
+            "Please ensure at least one of these tools is installed and properly configured.\n" +
+            "For Wayland/Hyprland, ydotool (with ydotoold running) or wlrctl is recommended.\n" +
+            "For X11/XWayland, xdotool is recommended."
+          );
+        });
+      });
+    });
+  });
+}
+
 function getLocalIpAddress() {
   const interfaces = os.networkInterfaces();
   for (const name of Object.keys(interfaces)) {
@@ -500,21 +525,7 @@ function startMobileServer() {
       const absX = Math.round(x * size.width);
       const absY = Math.round(y * size.height);
       sendHyprlandCommand(`/dispatch movecursor ${absX} ${absY}`);
-      exec("ydotool click 0xC0", (ydotoolErr) => {
-        if (ydotoolErr) {
-          exec("wlrctl pointer click", (wlrctlErr) => {
-            if (wlrctlErr) {
-              exec("xdotool click 1", (xdotoolErr) => {
-                if (xdotoolErr) {
-                  console.error(
-                    "Failed to simulate mouse click: ydotool, wlrctl, and xdotool all failed.",
-                  );
-                }
-              });
-            }
-          });
-        }
-      });
+      performMouseClick();
     });
 
     socket.on("webrtc-signal", ({ signal }) => {
@@ -1913,21 +1924,7 @@ ipcMain.on("inject-mouse-click", (event, { x, y }) => {
   const absX = Math.round(x * size.width);
   const absY = Math.round(y * size.height);
   sendHyprlandCommand(`/dispatch movecursor ${absX} ${absY}`);
-  exec("ydotool click 0xC0", (ydotoolErr) => {
-    if (ydotoolErr) {
-      exec("wlrctl pointer click", (wlrctlErr) => {
-        if (wlrctlErr) {
-          exec("xdotool click 1", (xdotoolErr) => {
-            if (xdotoolErr) {
-              console.error(
-                "Failed to simulate mouse click: ydotool, wlrctl, and xdotool all failed.",
-              );
-            }
-          });
-        }
-      });
-    }
-  });
+  performMouseClick();
 });
 
 ipcMain.handle("read-dir", async (event, dir_path) => {
