@@ -1317,3 +1317,191 @@ body.diff-active terminal-chat {
     no-repeat;
   transform-origin: top left;
 }
+
+/* ==========================================================================
+   Connection Hub PWA Styles (Simplified Retro Terminal Theme)
+   ========================================================================== */
+
+.connection-hub {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: var(--black-soft);
+  z-index: 9999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+.hub-terminal {
+  width: 100%;
+  max-width: 780px;
+  background: var(--charcoal-dark);
+  border: 1px solid var(--gray-dark);
+  border-radius: 6px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+  font-family: "Consolas", monospace;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.hub-terminal-header {
+  background: var(--charcoal);
+  padding: 0.5rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.terminal-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+}
+.terminal-dot.red { background-color: #ff5f56; }
+.terminal-dot.yellow { background-color: #ffbd2e; }
+.terminal-dot.green { background-color: #27c93f; }
+
+.terminal-title {
+  color: var(--gray);
+  font-size: 0.8rem;
+  margin-left: 0.5rem;
+  letter-spacing: 0.5px;
+}
+
+.hub-terminal-body {
+  padding: 1.5rem;
+  max-height: 480px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.terminal-line {
+  color: var(--gray-light);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.prompt-sym {
+  color: var(--green);
+  font-weight: bold;
+}
+
+.log-line {
+  color: var(--purple);
+  padding-left: 1.25rem;
+}
+
+.header-line {
+  color: var(--blue-soft);
+  font-weight: bold;
+}
+
+.terminal-instances-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding-left: 1.25rem;
+  margin-top: 0.25rem;
+}
+
+.terminal-win-item {
+  background: transparent;
+  border: 1px solid rgba(195, 232, 141, 0.15);
+  border-radius: 4px;
+  color: var(--green);
+  font-family: inherit;
+  font-size: 0.85rem;
+  padding: 0.6rem 0.8rem;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+  transition: background-color 0.2s, border-color 0.2s;
+  line-height: 1.4;
+}
+
+.terminal-win-item:hover {
+  background: rgba(195, 232, 141, 0.07);
+  border-color: var(--green);
+}
+
+.win-prefix {
+  font-weight: bold;
+  color: var(--yellow);
+  margin-right: 0.25rem;
+}
+
+.manual-input-line input[type="text"] {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--gray-dark);
+  color: var(--white);
+  font-family: inherit;
+  font-size: 0.85rem;
+  padding: 0.25rem 0.5rem;
+  outline: none;
+  border-radius: 3px;
+  box-sizing: border-box;
+}
+
+.manual-input-line input[type="text"]:focus {
+  border-color: var(--green);
+}
+
+.btn-terminal-connect {
+  background: var(--green);
+  color: var(--black-soft);
+  border: none;
+  border-radius: 3px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.25rem 0.75rem;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.btn-terminal-connect:hover {
+  opacity: 0.9;
+}
+
+
+
+/* Connection Overlay styling */
+#connection-overlay {
+  position: fixed;
+  top: env(safe-area-inset-top, 0px);
+  left: env(safe-area-inset-left, 0px);
+  right: env(safe-area-inset-right, 0px);
+  bottom: env(safe-area-inset-bottom, 0px);
+  background-color: #191919;
+  z-index: 10000;
+  font-size: 17px;
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  pointer-events: none;
+  font-family: "Consolas", monospace;
+  transition: opacity 0.2s;
+}
+
+body.conn-active #connection-overlay {
+  opacity: 1;
+  pointer-events: all;
+}
+
+body.conn-active terminal-chat {
+  display: none !important;
+}
+

@@ -1,6 +1,168 @@
 // Renderer process UI logic for Nono-Terminal
 const is_mobile = !window.api || !window.api.isElectron;
 
+let isScanning = false;
+let scanAbortController = null;
+
+function renderConnectionOverlay(statusText, windowsList = []) {
+  const body = document.getElementById("connection-body");
+  if (!body) return;
+  body.innerHTML = "";
+  
+  if (windowsList.length === 0) {
+    body.innerHTML = `<div class="diff-empty-msg">${statusText}</div>`;
+    return;
+  }
+  
+  const section = document.createElement("div");
+  section.className = "diff-section";
+  section.innerHTML = `<div class="diff-section-header">Discovered Sessions</div>`;
+  
+  const list = document.createElement("div");
+  list.className = "diff-list";
+  
+  windowsList.forEach(w => {
+    const item = document.createElement("div");
+    item.className = "diff-item";
+    item.style.cursor = "pointer";
+    item.style.display = "flex";
+    item.style.flexDirection = "column";
+    item.style.alignItems = "flex-start";
+    item.style.padding = "14px 18px";
+    item.style.gap = "4px";
+    item.style.width = "100%";
+    item.style.boxSizing = "border-box";
+    item.style.marginBottom = "8px";
+    
+    item.innerHTML = `
+      <div style="font-weight: bold; color: var(--purple); font-size: 1.05em; font-family: monospace;">Host: ${w.ip}:${w.port}</div>
+      <div style="color: var(--white); font-size: 0.95em; font-family: monospace;">Window ID: ${w.id}</div>
+      <div style="color: var(--gray-light); font-size: 0.85em; font-family: monospace;">Started: ${w.timeStr}</div>
+      <div style="color: var(--gray); font-size: 0.8em; font-family: monospace; word-break: break-all; margin-top: 4px;">Path: ${w.cwd}</div>
+    `;
+    
+    const connectFn = () => {
+      item.style.pointerEvents = "none";
+      item.style.opacity = "0.6";
+      const hostDiv = item.firstElementChild;
+      if (hostDiv) hostDiv.textContent = "Linking...";
+      
+      window.api.connectToHost(w.ip, w.port, w.id)
+        .then(() => {
+          document.body.classList.remove("conn-active");
+        })
+        .catch(err => {
+          item.style.pointerEvents = "auto";
+          item.style.opacity = "1";
+          if (hostDiv) hostDiv.textContent = `Host: ${w.ip}:${w.port}`;
+          alert("Failed to connect: " + err.message);
+        });
+    };
+    
+    item.addEventListener("click", () => {
+      connectFn();
+    });
+    
+    list.appendChild(item);
+  });
+  
+  section.appendChild(list);
+  body.appendChild(section);
+}
+
+async function startSubnetScan() {
+  if (isScanning) {
+    if (scanAbortController) {
+      scanAbortController.abort();
+    }
+  }
+  isScanning = true;
+  window.discoveredWindows = [];
+  
+  document.body.classList.add("conn-active");
+  renderConnectionOverlay("Scanning local network...");
+
+  const getSubnetsToScan = () => {
+    const host = window.location.hostname;
+    const subnets = ["192.168.1", "192.168.0", "192.168.2", "10.0.0"];
+    const match = host.match(/^(\d{1,3}\.\d{1,3}\.\d{1,3})\.\d{1,3}$/);
+    if (match && !host.startsWith("127.")) {
+      const localSubnet = match[1];
+      if (!subnets.includes(localSubnet)) {
+        subnets.unshift(localSubnet);
+      }
+    }
+    return subnets;
+  };
+
+  const subnets = getSubnetsToScan();
+  const portsToCheck = [13737, 13738, 13739];
+  const totalIps = 254;
+
+  scanAbortController = new AbortController();
+  let serverFound = false;
+
+  for (const subnet of subnets) {
+    if (serverFound || (window.api && window.api.windowId)) break;
+    
+    renderConnectionOverlay(`Scanning subnet ${subnet}.*...`);
+    const batchSize = 30;
+    
+    for (let i = 1; i <= totalIps; i += batchSize) {
+      if (serverFound || (window.api && window.api.windowId)) break;
+      const batch = [];
+      
+      for (let j = i; j < i + batchSize && j <= totalIps; j++) {
+        const ip = `${subnet}.${j}`;
+        for (const p of portsToCheck) {
+          batch.push(
+            (async () => {
+              if (serverFound || (window.api && window.api.windowId)) return;
+              try {
+                const res = await fetch(`http://${ip}:${p}/api/active-windows`, {
+                  signal: scanAbortController.signal
+                });
+                if (res.ok) {
+                  const data = await res.json();
+                  if (data.windows && data.windows.length > 0) {
+                    serverFound = true;
+                    scanAbortController.abort(); // Cancel other pending requests
+                    
+                    data.windows.forEach(w => {
+                      const timeStr = w.startTime ? new Date(w.startTime).toLocaleString() : 'Unknown';
+                      window.discoveredWindows.push({
+                        ip,
+                        port: p,
+                        id: w.id,
+                        timeStr,
+                        cwd: w.cwd
+                      });
+                    });
+                    
+                    renderConnectionOverlay("", window.discoveredWindows);
+                  }
+                }
+              } catch (e) {
+                // ignore
+              }
+            })()
+          );
+        }
+      }
+      try {
+        await Promise.all(batch);
+      } catch (e) {
+        // ignore
+      }
+    }
+  }
+  
+  isScanning = false;
+  if (!serverFound) {
+    renderConnectionOverlay("Scan complete. No active Nono-Terminal servers found.");
+  }
+}
+
 function logMobileEvent(type, ...args) {
   if (console[type]) {
     console[type](...args);
@@ -50,11 +212,6 @@ const slash_commands = [
   { name: "/exit", description: "Close current window" },
   { name: "/fullscreen", description: "Toggle fullscreen mode for the window" },
   { name: "/help", description: "Show list of available commands" },
-  {
-    name: "/mobile",
-    description:
-      "Share the current terminal UI with a mobile device via QR code",
-  },
   { name: "/open", description: "Open a file in the inline editor" },
   {
     name: "/add-pin",
@@ -196,6 +353,17 @@ function renderSuggestions(filtered) {
       <span class="slash-suggestion-desc">${cmd.description}</span>
     `;
     item.addEventListener("click", () => {
+      if (cmd.isConnectionItem) {
+        hideSuggestions();
+        window.api.connectToHost(cmd.ip, cmd.port, cmd.winId)
+          .then(() => {
+            appendTerminalSystemMessage("Connected successfully.");
+          })
+          .catch(err => {
+            appendTerminalSystemMessage("Connection failed: " + err.message);
+          });
+        return;
+      }
       const input = document.getElementById("active-input");
       const isCommand = cmd.name.startsWith("/");
       const prefix = cmd.cmdPrefix || "/open";
@@ -348,10 +516,56 @@ function appendNewPromptBlock(cwd) {
   window.scrollTo(0, document.body.scrollHeight);
 }
 
+// Trigger Connection Suggestions for PWA remote client discovery mode
+function triggerConnectionSuggestions() {
+  const activeInput = document.getElementById("active-input");
+  if (!activeInput) return;
+  const text = activeInput.textContent.trim().toLowerCase();
+  
+  let query = text;
+  if (query.startsWith("connect")) {
+    query = query.substring(7).trim();
+  }
+  
+  const matches = (window.discoveredWindows || []).filter(w => 
+    !query ||
+    w.cwd.toLowerCase().includes(query) || 
+    String(w.id).includes(query) || 
+    w.ip.includes(query)
+  ).map(w => ({
+    name: `connect ${w.ip} ${w.id}`,
+    description: `Window #${w.id} | Started: ${w.timeStr} | Path: ${w.cwd}`,
+    isConnectionItem: true,
+    ip: w.ip,
+    port: w.port,
+    winId: w.id
+  }));
+  
+  active_suggestions = matches;
+  renderSuggestions(matches);
+}
+
 // Handle inputs and keys on active prompt
 function setupInputListeners(input_elem) {
+  input_elem.addEventListener("focus", () => {
+    if (is_mobile && window.api && !window.api.windowId) {
+      triggerConnectionSuggestions();
+    }
+  });
+
+  input_elem.addEventListener("click", () => {
+    if (is_mobile && window.api && !window.api.windowId) {
+      triggerConnectionSuggestions();
+    }
+  });
+
   input_elem.addEventListener("input", () => {
     const text = input_elem.textContent;
+
+    if (is_mobile && window.api && !window.api.windowId) {
+      triggerConnectionSuggestions();
+      return;
+    }
 
     // Toggle green/purple chevron based on shell command heuristics
     if (isShellCommand(text)) {
@@ -411,14 +625,24 @@ function setupInputListeners(input_elem) {
           ".slash-suggestion-item.active",
         );
         if (active_item) {
-          const cmd_name = active_item.querySelector(
-            ".slash-suggestion-name",
-          ).textContent;
-          const isDir = active_item.getAttribute("data-is-dir") === "true";
-          const isCommand = cmd_name.startsWith("/");
-
           const active_suggestion =
             active_suggestions[selected_suggestion_index];
+
+          if (active_suggestion && active_suggestion.isConnectionItem) {
+            hideSuggestions();
+            window.api.connectToHost(active_suggestion.ip, active_suggestion.port, active_suggestion.winId)
+              .then(() => {
+                appendTerminalSystemMessage("Connected successfully.");
+              })
+              .catch(err => {
+                appendTerminalSystemMessage("Connection failed: " + err.message);
+              });
+            return;
+          }
+
+          const cmd_name = active_suggestion.name;
+          const isDir = !!active_suggestion.isDir;
+          const isCommand = cmd_name.startsWith("/");
           const cmdPrefix =
             active_suggestion && active_suggestion.cmdPrefix
               ? active_suggestion.cmdPrefix
@@ -489,6 +713,30 @@ function setupInputListeners(input_elem) {
 function submitInput(text, usePro = false) {
   const trimmed = text.replace(/\xa0/g, " ").trim();
   if (!trimmed) return;
+
+  if (is_mobile && window.api && !window.api.windowId) {
+    const input_elem = document.getElementById("active-input");
+    if (input_elem) {
+      input_elem.textContent = "";
+      placeCaretAtEnd(input_elem);
+    }
+    const parts = trimmed.split(/\s+/);
+    if (parts[0] === "connect" && parts.length >= 2) {
+      const ip = parts[1];
+      const winId = parts[2] || "1";
+      appendTerminalSystemMessage(`Attempting connection to ${ip}:13737 (Window #${winId})...`);
+      window.api.connectToHost(ip, "13737", winId)
+        .then(() => {
+          appendTerminalSystemMessage("Connected successfully.");
+        })
+        .catch(err => {
+          appendTerminalSystemMessage("Connection failed: " + err.message);
+        });
+    } else {
+      appendTerminalSystemMessage(`Unknown command: "${trimmed}". Select a suggestion or type: connect [ip] [window_id]`);
+    }
+    return;
+  }
 
   hideSuggestions();
   command_history.push(text);
@@ -1334,9 +1582,16 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   if (is_mobile) {
-    const activeBlock = document.getElementById("active-chat-block");
-    if (activeBlock) activeBlock.style.display = "none";
-    appendTerminalSystemMessage("Connecting to server...");
+
+
+    const rescanBtn = document.getElementById("conn-btn-refresh");
+    if (rescanBtn) {
+      rescanBtn.addEventListener("click", () => {
+        startSubnetScan();
+      });
+    }
+
+    startSubnetScan();
   }
 });
 
@@ -1346,11 +1601,7 @@ window.api.onWindowInit((info) => {
   console.log("Window initialized:", info);
 
   if (is_mobile) {
-    const activeBlock = document.getElementById("active-chat-block");
-    if (activeBlock && activeBlock.style.display === "none") {
-      activeBlock.style.display = "block";
-      appendTerminalSystemMessage("Connected successfully.");
-    }
+    document.body.classList.remove("conn-active");
   }
 
   if (info.windowId) {
@@ -1418,22 +1669,15 @@ if (window.api.onHideQrCode) {
 
 if (window.api.onConnect) {
   window.api.onConnect(() => {
-    const activeBlock = document.getElementById("active-chat-block");
-    if (activeBlock && activeBlock.style.display === "none") {
-      activeBlock.style.display = "block";
-      appendTerminalSystemMessage("Connected to server.");
-    }
+    document.body.classList.remove("conn-active");
   });
 }
 
 if (window.api.onDisconnect) {
   window.api.onDisconnect(() => {
-    const activeBlock = document.getElementById("active-chat-block");
-    if (activeBlock) activeBlock.style.display = "none";
-    appendTerminalSystemMessage(
-      "Disconnected from server. Reconnecting...",
-      true,
-    );
+    document.body.classList.add("conn-active");
+    renderConnectionOverlay("Disconnected from server. Reconnecting...");
+    startSubnetScan();
   });
 }
 

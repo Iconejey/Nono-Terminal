@@ -136,7 +136,57 @@ function startMobileServer() {
 
   const expressApp = express();
   const httpServer = http.createServer(expressApp);
-  io_server = socketIo(httpServer);
+  
+  // Enable socket.io CORS so PWA from VPS can connect
+  io_server = socketIo(httpServer, {
+    cors: {
+      origin: "*",
+      methods: ["GET", "POST"]
+    },
+    handlePreflightRequest: (req, res) => {
+      const headers = {
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, Origin, Accept",
+        "Access-Control-Allow-Origin": req.headers.origin || "*",
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Private-Network": "true"
+      };
+      res.writeHead(204, headers);
+      res.end();
+    }
+  });
+
+  io_server.engine.on("headers", (headers, req) => {
+    headers["Access-Control-Allow-Private-Network"] = "true";
+    headers["Access-Control-Allow-Origin"] = req.headers.origin || "*";
+    headers["Access-Control-Allow-Credentials"] = "true";
+  });
+
+  // Enable CORS headers in Express
+  expressApp.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+    res.header("Access-Control-Allow-Private-Network", "true");
+    next();
+  });
+
+  // REST API endpoint to list active terminal windows for scanning/discovery
+  expressApp.get("/api/active-windows", (req, res) => {
+    const list = [];
+    for (const [id, data] of active_windows.entries()) {
+      list.push({
+        id: id,
+        cwd: data.session.current_cwd || process.cwd(),
+        model: data.session.model || "",
+        startTime: data.startTime || Date.now()
+      });
+    }
+    res.json({ windows: list });
+  });
+
+  // Ping endpoint for fast subnet scans
+  expressApp.get("/ping", (req, res) => {
+    res.send("pong");
+  });
 
   expressApp.use(express.static(path.join(__dirname, "window")));
 
@@ -584,15 +634,29 @@ function startMobileServer() {
     });
   });
 
-  return new Promise((resolve) => {
-    httpServer.listen(0, "0.0.0.0", () => {
-      server_port = httpServer.address().port;
-      web_server = httpServer;
-      console.log(
-        `Mobile Express/Socket.io server started on port ${server_port}`,
-      );
-      resolve(server_port);
-    });
+  return new Promise((resolve, reject) => {
+    let port = 13737;
+    const startListening = (p) => {
+      httpServer.listen(p, "0.0.0.0", () => {
+        server_port = p;
+        web_server = httpServer;
+        console.log(
+          `Mobile Express/Socket.io server started on port ${server_port}`
+        );
+        resolve(server_port);
+      });
+
+      httpServer.on("error", (err) => {
+        if (err.code === "EADDRINUSE" && p < 13745) {
+          console.log(`Port ${p} in use, trying ${p + 1}...`);
+          httpServer.removeAllListeners("error");
+          startListening(p + 1);
+        } else {
+          reject(err);
+        }
+      });
+    };
+    startListening(port);
   });
 }
 
@@ -629,20 +693,9 @@ async function executeSlashCommandForWindow(windowId, command_str) {
     });
   } else if (command_name === "/mobile") {
     try {
-      const port = await startMobileServer();
       const ip = getLocalIpAddress();
-      const url = `http://${ip}:${port}/?windowId=${windowId}`;
-      const qrCodeDataUrl = await QRCode.toDataURL(url, {
-        margin: 0,
-        width: 512,
-      });
-
-      // Send the QR code back to the Electron window
-      sendToWindow(windowId, "show-qrcode", { url, qrCodeDataUrl });
-
-      // Print a message to the shell output
       sendToWindow(windowId, "shell-output", {
-        text: `Mobile connection server running at: ${url}\n`,
+        text: `Mobile server is running by default.\nLocal Address: http://${ip}:${server_port}\nAccess it via your VPS PWA! (No QR code needed)\n`,
         is_stderr: false,
       });
       sendToWindow(windowId, "shell-complete", {
@@ -651,7 +704,7 @@ async function executeSlashCommandForWindow(windowId, command_str) {
       });
     } catch (err) {
       sendToWindow(windowId, "shell-output", {
-        text: `Failed to start mobile server: ${err.message}\n`,
+        text: `Error getting mobile connection details: ${err.message}\n`,
         is_stderr: true,
       });
       sendToWindow(windowId, "shell-complete", {
@@ -1777,7 +1830,7 @@ function createWindow(initial_cwd) {
   win.webContents.once("did-finish-load", () => {
     const cwd = os.homedir();
     const session = new ShellSession(win.webContents, cwd);
-    active_windows.set(win.webContents.id, { win, session });
+    active_windows.set(win.webContents.id, { win, session, startTime: Date.now() });
 
     // Send the workspace repo map upon initialization
     const repo_map = generateRepoMap(cwd);
@@ -1817,6 +1870,9 @@ if (!got_the_lock) {
 // App event listeners
 app.whenReady().then(() => {
   createWindow();
+  startMobileServer().catch((err) => {
+    console.error("Failed to start mobile server on startup:", err);
+  });
 });
 
 app.on("window-all-closed", () => {

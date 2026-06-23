@@ -3,7 +3,9 @@
 	"version": "1.0.0",
 	"main": "main.js",
 	"scripts": {
-		"start": "env ELECTRON_ENABLE_LOGGING=1 electron ."
+		"start": "env ELECTRON_ENABLE_LOGGING=1 electron .",
+		"web-app": "node web-app/server.js",
+		"web-app-prod": "pm2 start web-app/server.js --name terminal"
 	},
 	"dependencies": {
 		"express": "^5.2.1",

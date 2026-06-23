@@ -1,0 +1,31 @@
+{
+  "name": "Nono-Terminal",
+  "short_name": "Nono",
+  "description": "Premium persistent terminal with AI assistant",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#131313",
+  "theme_color": "#191919",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "https://icons.ngwy.fr/maskable/code/c792ea/242424/512/512",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://icons.ngwy.fr/badge/code/none/c792ea/512/512",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "monochrome"
+    }
+  ],
+  "badges": [
+    {
+      "src": "https://icons.ngwy.fr/badge/code/none/c792ea/512/512",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
