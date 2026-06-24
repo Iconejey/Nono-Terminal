@@ -644,14 +644,52 @@ function setupInputListeners(input_elem) {
 		}
 	});
 
-	input_elem.addEventListener('click', () => {
+	input_elem.addEventListener('click', e => {
+		if (input_elem.classList.contains('multi-line')) {
+			const rect = input_elem.getBoundingClientRect();
+			const clickX = e.clientX - rect.left;
+			const style = window.getComputedStyle(input_elem);
+			const paddingLeft = parseFloat(style.paddingLeft) || 24;
+			if (clickX < paddingLeft) {
+				e.preventDefault();
+				e.stopPropagation();
+				input_elem.classList.remove('multi-line');
+				placeCaretAtEnd(input_elem);
+				return;
+			}
+		}
 		if (is_mobile && window.api && !window.api.windowId) {
 			triggerConnectionSuggestions();
 		}
 	});
 
+	input_elem.addEventListener('mousemove', e => {
+		if (input_elem.classList.contains('multi-line')) {
+			const rect = input_elem.getBoundingClientRect();
+			const clickX = e.clientX - rect.left;
+			const style = window.getComputedStyle(input_elem);
+			const paddingLeft = parseFloat(style.paddingLeft) || 24;
+			if (clickX < paddingLeft) {
+				input_elem.style.cursor = 'pointer';
+			} else {
+				input_elem.style.cursor = 'text';
+			}
+		} else {
+			input_elem.style.cursor = '';
+		}
+	});
+
 	input_elem.addEventListener('input', () => {
 		const text = input_elem.textContent;
+
+		if (text === '!') {
+			input_elem.textContent = '';
+			input_elem.classList.add('multi-line');
+			placeCaretAtEnd(input_elem);
+			// Dispatch input event to refresh suggestions/heuristics
+			input_elem.dispatchEvent(new Event('input'));
+			return;
+		}
 
 		if (is_mobile && window.api && !window.api.windowId) {
 			triggerConnectionSuggestions();
@@ -690,6 +728,7 @@ function setupInputListeners(input_elem) {
 	input_elem.addEventListener('keydown', e => {
 		if (e.key === 'Enter' && e.ctrlKey && !e.shiftKey) {
 			e.preventDefault();
+			input_elem.classList.add('multi-line');
 			document.execCommand('insertText', false, '\n');
 			return;
 		}
@@ -775,7 +814,16 @@ function setupInputListeners(input_elem) {
 				}
 			} else if (e.key === 'Enter') {
 				e.preventDefault();
-				submitInput(input_elem.textContent, e.ctrlKey && e.shiftKey);
+				if (input_elem.classList.contains('multi-line')) {
+					document.execCommand('insertText', false, '\n');
+				} else {
+					submitInput(input_elem.textContent, e.ctrlKey && e.shiftKey);
+				}
+			} else if (e.key === 'Escape') {
+				if (input_elem.classList.contains('multi-line')) {
+					e.preventDefault();
+					input_elem.classList.remove('multi-line');
+				}
 			}
 		}
 	});
