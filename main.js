@@ -93,13 +93,13 @@ function performMouseClick() {
           if (!xdotoolErr) return;
           console.error(
             "Failed to simulate mouse click: ydotool, wlrctl, dotool, and xdotool all failed.\n" +
-            `  - ydotool error: ${ydotoolErr.message.trim()}\n` +
-            `  - wlrctl error: ${wlrctlErr.message.trim()}\n` +
-            `  - dotool error: ${dotoolErr.message.trim()}\n` +
-            `  - xdotool error: ${xdotoolErr.message.trim()}\n\n` +
-            "Please ensure at least one of these tools is installed and properly configured.\n" +
-            "For Wayland/Hyprland, ydotool (with ydotoold running) or wlrctl is recommended.\n" +
-            "For X11/XWayland, xdotool is recommended."
+              `  - ydotool error: ${ydotoolErr.message.trim()}\n` +
+              `  - wlrctl error: ${wlrctlErr.message.trim()}\n` +
+              `  - dotool error: ${dotoolErr.message.trim()}\n` +
+              `  - xdotool error: ${xdotoolErr.message.trim()}\n\n` +
+              "Please ensure at least one of these tools is installed and properly configured.\n" +
+              "For Wayland/Hyprland, ydotool (with ydotoold running) or wlrctl is recommended.\n" +
+              "For X11/XWayland, xdotool is recommended.",
           );
         });
       });
@@ -116,7 +116,9 @@ function performMouseRightClick() {
         if (!dotoolErr) return;
         exec("xdotool click 3", (xdotoolErr) => {
           if (!xdotoolErr) return;
-          console.error("Failed to simulate mouse right click: ydotool, wlrctl, dotool, and xdotool all failed.");
+          console.error(
+            "Failed to simulate mouse right click: ydotool, wlrctl, dotool, and xdotool all failed.",
+          );
         });
       });
     });
@@ -126,13 +128,14 @@ function performMouseRightClick() {
 function performMouseScroll(dx, dy) {
   const ydotoolCmd = `ydotool mousemove -w -- ${Math.round(dx)} ${Math.round(dy)}`;
   const wlrctlCmd = `wlrctl pointer scroll ${Math.round(-dy)} ${Math.round(dx)}`;
-  
+
   let dotoolCmds = [];
   if (dy > 0) dotoolCmds.push("wheel up");
   if (dy < 0) dotoolCmds.push("wheel down");
   if (dx > 0) dotoolCmds.push("wheel right");
   if (dx < 0) dotoolCmds.push("wheel left");
-  const dotoolCmd = dotoolCmds.length > 0 ? `echo '${dotoolCmds.join("\n")}' | dotool` : "true";
+  const dotoolCmd =
+    dotoolCmds.length > 0 ? `echo '${dotoolCmds.join("\n")}' | dotool` : "true";
 
   let xdotoolCmds = [];
   const stepsY = Math.abs(Math.round(dy));
@@ -155,7 +158,9 @@ function performMouseScroll(dx, dy) {
         if (!dotoolErr) return;
         exec(xdotoolCmd, (xdotoolErr) => {
           if (!xdotoolErr) return;
-          console.error("Failed to simulate mouse scroll using ydotool, wlrctl, dotool, or xdotool.");
+          console.error(
+            "Failed to simulate mouse scroll using ydotool, wlrctl, dotool, or xdotool.",
+          );
         });
       });
     });
@@ -191,23 +196,24 @@ function startMobileServer() {
 
   const expressApp = express();
   const httpServer = http.createServer(expressApp);
-  
+
   // Enable socket.io CORS so PWA from VPS can connect
   io_server = socketIo(httpServer, {
     cors: {
       origin: "*",
-      methods: ["GET", "POST"]
+      methods: ["GET", "POST"],
     },
     handlePreflightRequest: (req, res) => {
       const headers = {
-        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, Origin, Accept",
+        "Access-Control-Allow-Headers":
+          "Content-Type, Authorization, X-Requested-With, Origin, Accept",
         "Access-Control-Allow-Origin": req.headers.origin || "*",
         "Access-Control-Allow-Credentials": "true",
-        "Access-Control-Allow-Private-Network": "true"
+        "Access-Control-Allow-Private-Network": "true",
       };
       res.writeHead(204, headers);
       res.end();
-    }
+    },
   });
 
   io_server.engine.on("headers", (headers, req) => {
@@ -219,7 +225,10 @@ function startMobileServer() {
   // Enable CORS headers in Express
   expressApp.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+    res.header(
+      "Access-Control-Allow-Headers",
+      "Origin, X-Requested-With, Content-Type, Accept",
+    );
     res.header("Access-Control-Allow-Private-Network", "true");
     next();
   });
@@ -232,7 +241,7 @@ function startMobileServer() {
         id: id,
         cwd: data.session.current_cwd || process.cwd(),
         model: data.session.model || "",
-        startTime: data.startTime || Date.now()
+        startTime: data.startTime || Date.now(),
       });
     }
     res.json({ windows: list });
@@ -709,7 +718,7 @@ function startMobileServer() {
         server_port = p;
         web_server = httpServer;
         console.log(
-          `Mobile Express/Socket.io server started on port ${server_port}`
+          `Mobile Express/Socket.io server started on port ${server_port}`,
         );
         resolve(server_port);
       });
@@ -850,6 +859,47 @@ async function executeSlashCommandForWindow(windowId, command_str) {
     } catch (err) {
       sendToWindow(windowId, "shell-output", {
         text: `Error pinning directory: ${err.message}\n`,
+        is_stderr: true,
+      });
+      sendToWindow(windowId, "shell-complete", {
+        exit_code: 1,
+        cwd: data.session.current_cwd,
+      });
+    }
+  } else if (command_name === "/update") {
+    try {
+      data.win.webContents
+        .executeJavaScript(
+          `
+        (async () => {
+          try {
+            if ("serviceWorker" in navigator) {
+              const registrations = await navigator.serviceWorker.getRegistrations();
+              for (const registration of registrations) {
+                await registration.unregister();
+              }
+            }
+            if ("caches" in window) {
+              const keys = await caches.keys();
+              await Promise.all(keys.map((key) => caches.delete(key)));
+            }
+          } catch (err) {
+            console.error(err);
+          } finally {
+            window.location.reload();
+          }
+        })()
+      `,
+        )
+        .catch((err) => {
+          console.error(
+            "Error executing /update script in window webContents:",
+            err,
+          );
+        });
+    } catch (err) {
+      sendToWindow(windowId, "shell-output", {
+        text: `Error updating app: ${err.message}\n`,
         is_stderr: true,
       });
       sendToWindow(windowId, "shell-complete", {
@@ -1898,7 +1948,11 @@ function createWindow(initial_cwd) {
   win.webContents.once("did-finish-load", () => {
     const cwd = os.homedir();
     const session = new ShellSession(win.webContents, cwd);
-    active_windows.set(win.webContents.id, { win, session, startTime: Date.now() });
+    active_windows.set(win.webContents.id, {
+      win,
+      session,
+      startTime: Date.now(),
+    });
 
     // Send the workspace repo map upon initialization
     const repo_map = generateRepoMap(cwd);
