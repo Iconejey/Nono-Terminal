@@ -612,6 +612,12 @@ function initAgentRunUI() {
 
 	const summary = document.createElement('summary');
 	summary.className = 'chat-marker';
+
+	const spin_star = document.createElement('span');
+	spin_star.className = 'spin-star';
+	spin_star.textContent = '✦';
+	summary.appendChild(spin_star);
+
 	active_agent_run_status = document.createElement('span');
 	active_agent_run_status.className = 'status-text';
 	active_agent_run_status.textContent = 'Working...';
