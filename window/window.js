@@ -577,6 +577,17 @@ function updateAgentRunSummary(details) {
 	}
 }
 
+function renderThinkingMessage(elem, text) {
+	if (window.marked) {
+		elem.innerHTML = window.marked.parse(text);
+		if (window.Prism) {
+			window.Prism.highlightAllUnder(elem);
+		}
+	} else {
+		elem.textContent = text;
+	}
+}
+
 function initAgentRunUI() {
 	const container = document.getElementById('terminal-chat-container');
 
@@ -3045,7 +3056,7 @@ window.api.onAgentChunk(info => {
 	}
 
 	if (!current_thinking_block) {
-		current_thinking_block = document.createElement('pre');
+		current_thinking_block = document.createElement('div');
 		current_thinking_block.className = 'thinking-content';
 		active_agent_run_content.appendChild(current_thinking_block);
 	}
@@ -3059,7 +3070,7 @@ window.api.onAgentChunk(info => {
 		textToShow += parsed.content;
 	}
 
-	current_thinking_block.textContent = textToShow;
+	renderThinkingMessage(current_thinking_block, textToShow);
 
 	window.scrollTo(0, document.body.scrollHeight);
 });
@@ -3152,7 +3163,7 @@ window.api.onAgentComplete(() => {
 
 	if (current_thinking_block) {
 		if (finalParsed.thinking) {
-			current_thinking_block.textContent = finalParsed.thinking;
+			renderThinkingMessage(current_thinking_block, finalParsed.thinking);
 		} else {
 			current_thinking_block.remove();
 		}
@@ -3645,7 +3656,7 @@ function simulateAgentResponse(fullText) {
 
 			if (current_thinking_block) {
 				if (finalParsed.thinking) {
-					current_thinking_block.textContent = finalParsed.thinking;
+					renderThinkingMessage(current_thinking_block, finalParsed.thinking);
 				} else {
 					current_thinking_block.remove();
 				}
@@ -3693,7 +3704,7 @@ function simulateAgentResponse(fullText) {
 		}
 
 		if (!current_thinking_block) {
-			current_thinking_block = document.createElement('pre');
+			current_thinking_block = document.createElement('div');
 			current_thinking_block.className = 'thinking-content';
 			active_agent_run_content.appendChild(current_thinking_block);
 		}
@@ -3707,7 +3718,7 @@ function simulateAgentResponse(fullText) {
 			textToShow += parsed.content;
 		}
 
-		current_thinking_block.textContent = textToShow;
+		renderThinkingMessage(current_thinking_block, textToShow);
 
 		window.scrollTo(0, document.body.scrollHeight);
 	}, 15);

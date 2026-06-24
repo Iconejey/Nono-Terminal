@@ -444,7 +444,7 @@ details.thinking-details {
 		transform: rotate(90deg);
 	}
 
-	& pre.thinking-content {
+	& .thinking-content {
 		margin-top: 6px;
 		margin-bottom: 0;
 		white-space: pre-wrap;
@@ -1630,10 +1630,18 @@ details.agent-run-details {
 		gap: 0.5rem;
 	}
 
-	& pre.thinking-content {
+	& .thinking-content {
 		margin: 0;
 		white-space: pre-wrap;
 		color: var(--gray);
+
+		& p {
+			margin: 0 0 6px 0;
+			line-height: 1.4;
+		}
+		& p:last-child {
+			margin-bottom: 0;
+		}
 	}
 
 	& pre.input {
