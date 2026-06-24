@@ -68,6 +68,7 @@ contextBridge.exposeInMainWorld("api", {
   injectMouseRightClick: (coords) => ipcRenderer.send("inject-mouse-right-click", coords),
   injectMouseScroll: (delta) => ipcRenderer.send("inject-mouse-scroll", delta),
   injectText: (text) => ipcRenderer.send("inject-text", text),
+  injectKeyShortcut: (shortcut) => ipcRenderer.send("inject-key-shortcut", shortcut),
   sendScreenBg: (socketId, jpegData) =>
     ipcRenderer.send("send-screen-bg", socketId, jpegData),
 });

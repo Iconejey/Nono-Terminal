@@ -16,14 +16,6 @@ Nono-Terminal is an Electron-based persistent terminal emulator integrated with 
 - /files slash command to toggle a file explorer view and navigate the workspace files.
 - Missing AI methods, such as file creation, file deletion, file renaming, ask user, etc.
 
-### Screen sharing mode
-
-- /key-shortcut slash command to show keyboard and modifier keys to make a shortcut key combination to send to the remote machine.
-
-### IONOS web app
-
-- A server running on the IONOS server that serves the Nono-Terminal web app to be accessed from any device. No need for QR code scanning, the web app will scan the local network for the Nono-Terminal electron app and connect to it automatically, listing all the available Nono-Terminal windows to connect to.
-
 ## Architecture & Technical Stack
 
 Nono-Terminal separates the browser interface from your system using Electron IPC channels:

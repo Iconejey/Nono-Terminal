@@ -165,6 +165,8 @@ function performMouseScroll(dx, dy) {
       });
     });
   });
+}
+
 function injectTextToSystem(text) {
   if (!text) return;
   const ydotool = spawn("ydotool", ["type", "--file", "-"]);
@@ -172,6 +174,59 @@ function injectTextToSystem(text) {
   ydotool.stdin.end();
   ydotool.on("error", (err) => {
     console.error("Failed to inject text using ydotool:", err);
+  });
+}
+
+const KEY_CODES = {
+  "ctrl": 29,
+  "shift": 42,
+  "alt": 56,
+  "super": 125,
+  "win": 125,
+  "meta": 125,
+  "escape": 1,
+  "esc": 1,
+  "enter": 28,
+  "space": 57,
+  "tab": 15,
+  "backspace": 14,
+  "delete": 111,
+  "del": 111,
+  "insert": 110,
+  "ins": 110,
+  "pageup": 104,
+  "pgup": 104,
+  "pagedown": 109,
+  "pgdn": 109,
+  "home": 102,
+  "end": 107,
+  "up": 103,
+  "down": 108,
+  "left": 105,
+  "right": 106,
+  "a": 30, "b": 48, "c": 46, "d": 32, "e": 18, "f": 33, "g": 34, "h": 35,
+  "i": 23, "j": 36, "k": 37, "l": 38, "m": 50, "n": 49, "o": 24, "p": 25,
+  "q": 16, "r": 19, "s": 31, "t": 20, "u": 22, "v": 47, "w": 17, "x": 45,
+  "y": 21, "z": 44,
+  "1": 2, "2": 3, "3": 4, "4": 5, "5": 6, "6": 7, "7": 8, "8": 9, "9": 10, "0": 11,
+  "f1": 59, "f2": 60, "f3": 61, "f4": 62, "f5": 63, "f6": 64, "f7": 65, "f8": 66,
+  "f9": 67, "f10": 68, "f11": 87, "f12": 88
+};
+
+function triggerKeyShortcut(shortcut) {
+  if (!shortcut) return;
+  const keys = shortcut.toLowerCase().split("+").map(k => k.trim()).filter(Boolean);
+  const codes = keys.map(k => KEY_CODES[k]).filter(c => c !== undefined);
+  if (codes.length === 0) {
+    console.error(`Invalid shortcut keys: ${shortcut}`);
+    return;
+  }
+  const pressSeq = codes.map(c => `${c}:1`);
+  const releaseSeq = [...codes].reverse().map(c => `${c}:0`);
+  const sequence = [...pressSeq, ...releaseSeq];
+  const ydotool = spawn("ydotool", ["key", ...sequence]);
+  ydotool.on("error", (err) => {
+    console.error("Failed to run ydotool key shortcut:", err);
   });
 }
 
@@ -665,6 +720,10 @@ function startMobileServer() {
 
     socket.on("inject-text", ({ text }) => {
       injectTextToSystem(text);
+    });
+
+    socket.on("inject-key-shortcut", ({ shortcut }) => {
+      triggerKeyShortcut(shortcut);
     });
 
     socket.on("webrtc-signal", ({ signal }) => {
@@ -2153,6 +2212,10 @@ ipcMain.on("inject-mouse-scroll", (event, delta) => {
 
 ipcMain.on("inject-text", (event, text) => {
   injectTextToSystem(text);
+});
+
+ipcMain.on("inject-key-shortcut", (event, shortcut) => {
+  triggerKeyShortcut(shortcut);
 });
 
 ipcMain.handle("read-dir", async (event, dir_path) => {

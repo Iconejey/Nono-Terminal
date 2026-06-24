@@ -317,6 +317,7 @@ const slash_commands = [
 	{ name: '/host', description: 'Show local server origin to copy/paste in Chrome flags' },
 	{ name: '/open', description: 'Open a file in the inline editor' },
 	{ name: '/type', description: 'Enter typing mode to send text to the remote computer' },
+	{ name: '/key-shortcut', description: 'Trigger a keyboard shortcut on the remote computer (e.g. /key-shortcut shift+ctrl+b)' },
 	{
 		name: '/add-pin',
 		description: 'Pin a directory to bookmarks (defaults to current directory if no path specified)'
@@ -713,7 +714,19 @@ function setupInputListeners(input_elem) {
 	});
 
 	input_elem.addEventListener('input', () => {
-		const text = input_elem.textContent;
+		const text = input_elem.textContent.replace(/\xa0/g, ' ');
+
+		if (text.startsWith('/key-shortcut ') || text.startsWith('/key-shorcut ')) {
+			const cmdLen = text.startsWith('/key-shortcut ') ? 14 : 13;
+			const arg = text.substring(cmdLen);
+			if (arg.includes(' ') || arg.includes('\xa0')) {
+				const cleanArg = arg.replace(/[\s\xa0]+/g, '+');
+				input_elem.textContent = text.startsWith('/key-shortcut ') ? `/key-shortcut ${cleanArg}` : `/key-shorcut ${cleanArg}`;
+				placeCaretAtEnd(input_elem);
+				input_elem.dispatchEvent(new Event('input'));
+				return;
+			}
+		}
 
 		if (text === '!') {
 			input_elem.textContent = '';
@@ -747,6 +760,14 @@ function setupInputListeners(input_elem) {
 		} else if (text.startsWith('/unpin')) {
 			const query = text.substring(6).trim();
 			handlePinsSuggestions(query, '/unpin');
+		} else if (text.startsWith('/key-shortcut') || text.startsWith('/key-shorcut')) {
+			const cmdLen = text.startsWith('/key-shortcut') ? 13 : 12;
+			const query = text.substring(cmdLen).trim();
+			if (text.charAt(cmdLen) === ' ') {
+				handleKeyShortcutSuggestions(query);
+			} else {
+				hideSuggestions();
+			}
 		} else if (text.startsWith('/') && !text.includes(' ')) {
 			const filtered = getFilteredSuggestions(text.split(/\s+/)[0]);
 			selected_suggestion_index = 0;
@@ -798,14 +819,33 @@ function setupInputListeners(input_elem) {
 						return;
 					}
 
+					if (active_suggestion && active_suggestion.isKeyShortcutItem) {
+						const normalizedInput = input_elem.textContent.replace(/\xa0/g, ' ');
+						const cmdPrefix = normalizedInput.startsWith('/key-shortcut') ? '/key-shortcut' : '/key-shorcut';
+						const suggestionCompletedText = `${cmdPrefix} ${active_suggestion.name}`;
+						const currentInputText = normalizedInput.trim();
+
+						if (e.key === 'Enter' && currentInputText.toLowerCase() === suggestionCompletedText.toLowerCase()) {
+							hideSuggestions();
+							submitInput(input_elem.textContent, e.ctrlKey && e.shiftKey);
+							return;
+						}
+
+						input_elem.textContent = suggestionCompletedText;
+						placeCaretAtEnd(input_elem);
+						hideSuggestions();
+						input_elem.dispatchEvent(new Event('input'));
+						return;
+					}
+
 					const cmd_name = active_suggestion.name;
 					const isDir = !!active_suggestion.isDir;
 					const isCommand = cmd_name.startsWith('/');
 					const cmdPrefix = active_suggestion && active_suggestion.cmdPrefix ? active_suggestion.cmdPrefix : '/open';
 					const suggestionCompletedText = isCommand ? cmd_name : cmdPrefix + ' ' + cmd_name;
-					const currentInputText = input_elem.textContent.trim();
+					const currentInputText = input_elem.textContent.replace(/\xa0/g, ' ').trim();
 
-					if (e.key === 'Enter' && !isDir && currentInputText === suggestionCompletedText) {
+					if (e.key === 'Enter' && !isDir && currentInputText.toLowerCase() === suggestionCompletedText.toLowerCase()) {
 						hideSuggestions();
 						submitInput(input_elem.textContent, e.ctrlKey && e.shiftKey);
 						return;
@@ -930,6 +970,7 @@ function submitInput(text, usePro = false) {
   /open [path]    - Open a file in the inline editor
   /pins [name]    - Switch to a pinned directory
   /type           - Enter typing mode to send text to the remote computer
+  /key-shortcut [keys] - Trigger a keyboard shortcut on the remote computer (e.g. /key-shortcut shift+ctrl+b)
   /unpin [name]   - Unpin a directory
   /shortcuts      - List available keyboard shortcuts with descriptions
   /test-md        - Simulate AI responding with markdown-debug-example.md content
@@ -945,6 +986,30 @@ function submitInput(text, usePro = false) {
 				activeInput.classList.add('typing-mode');
 				activeInput.setAttribute('contenteditable', 'true');
 				placeCaretAtEnd(activeInput);
+			}
+			return;
+		} else if (trimmed.startsWith('/key-shortcut') || trimmed.startsWith('/key-shorcut')) {
+			const parts = trimmed.split(/\s+/);
+			const arg = parts.slice(1).join('+');
+			if (arg) {
+				if (window.api.injectKeyShortcut) {
+					window.api.injectKeyShortcut(arg);
+				}
+				const container = document.getElementById('terminal-chat-container');
+				const active_block = document.getElementById('active-chat-block');
+				const out_pre = document.createElement('pre');
+				out_pre.className = 'output';
+				out_pre.textContent = `Keyboard shortcut injected: ${arg}`;
+				active_block.appendChild(out_pre);
+				appendNewPromptBlock(current_cwd);
+			} else {
+				const container = document.getElementById('terminal-chat-container');
+				const active_block = document.getElementById('active-chat-block');
+				const out_pre = document.createElement('pre');
+				out_pre.className = 'output';
+				out_pre.textContent = 'Error: No keyboard shortcut specified. Usage: /key-shortcut shift+ctrl+b';
+				active_block.appendChild(out_pre);
+				appendNewPromptBlock(current_cwd);
 			}
 			return;
 		} else if (trimmed.startsWith('/changes')) {
@@ -3170,6 +3235,27 @@ function handlePinsSuggestions(query, cmdPrefix = '/pins') {
 			path: dir,
 			isDir: true,
 			cmdPrefix: cmdPrefix
+		};
+	});
+
+	selected_suggestion_index = Math.min(selected_suggestion_index, Math.max(0, suggestions.length - 1));
+	renderSuggestions(suggestions);
+}
+
+function handleKeyShortcutSuggestions(query) {
+	const lastPlusIndex = query.lastIndexOf('+');
+	const typedPrefix = lastPlusIndex === -1 ? '' : query.substring(0, lastPlusIndex + 1);
+	const currentKeyTyped = lastPlusIndex === -1 ? query : query.substring(lastPlusIndex + 1);
+
+	const available = ["ctrl", "shift", "alt", "super", "escape", "enter", "space", "tab", "backspace", "delete", "insert", "pageup", "pagedown", "home", "end", "up", "down", "left", "right"];
+	const matches = available.filter(k => k.startsWith(currentKeyTyped.toLowerCase()));
+
+	const suggestions = matches.map(m => {
+		const completed = typedPrefix + m;
+		return {
+			name: completed,
+			description: `Shortcut: ${completed}`,
+			isKeyShortcutItem: true
 		};
 	});
 

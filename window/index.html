@@ -200,6 +200,9 @@
 						injectText: text => {
 							if (currentSocket) currentSocket.emit('inject-text', { text });
 						},
+						injectKeyShortcut: shortcut => {
+							if (currentSocket) currentSocket.emit('inject-key-shortcut', { shortcut });
+						},
 						sendCropRegion: region => {
 							if (currentSocket) currentSocket.emit('update-crop-region', { region });
 						},
