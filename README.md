@@ -15,7 +15,7 @@ Nono-Terminal is an Electron-based persistent terminal emulator integrated with 
 - Better file edit output print.
 - /web {query} slash command to do a web search
 - /files slash command to toggle a file explorer view and navigate the workspace files.
-- Missing AI methods, such as file creation, file deletion, and file renaming.
+- Missing AI methods, such as file creation, file deletion, file renaming, ask user, etc.
 
 ### Screen sharing mode
 

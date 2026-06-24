@@ -1511,3 +1511,26 @@ body.conn-active #connection-overlay {
 body.conn-active terminal-chat {
 	display: none !important;
 }
+
+/* Cancel Task Floating Button */
+.btn-cancel-task {
+	position: fixed;
+	bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+	left: 50%;
+	transform: translateX(-50%);
+	z-index: 9999;
+	background: rgba(255, 255, 255, 0.05);
+	border: 1px solid var(--gray-dark);
+	color: var(--gray-light);
+	border-radius: 24px;
+	font-weight: bold;
+	font-family: inherit;
+	font-size: 0.9em;
+	display: none;
+	align-items: center;
+	gap: 8px;
+	cursor: pointer;
+	padding: 10px 24px;
+	backdrop-filter: blur(8px);
+	-webkit-backdrop-filter: blur(8px);
+}

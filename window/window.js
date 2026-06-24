@@ -1,6 +1,20 @@
 // Renderer process UI logic for Nono-Terminal
 const is_mobile = !window.api || !window.api.isElectron;
 
+function showCancelButton() {
+	const btn = document.getElementById('cancel-task-btn');
+	if (btn) {
+		btn.style.display = 'inline-flex';
+	}
+}
+
+function hideCancelButton() {
+	const btn = document.getElementById('cancel-task-btn');
+	if (btn) {
+		btn.style.display = 'none';
+	}
+}
+
 let isScanning = false;
 let scanAbortController = null;
 
@@ -1676,6 +1690,14 @@ window.addEventListener('DOMContentLoaded', () => {
 
 		startSubnetScan(false); // Check known hosts first on startup
 	}
+
+	const cancelBtn = document.getElementById('cancel-task-btn');
+	if (cancelBtn) {
+		cancelBtn.addEventListener('click', () => {
+			window.api.sendInterrupt();
+			hideCancelButton();
+		});
+	}
 });
 
 // IPC listeners
@@ -1755,6 +1777,7 @@ if (window.api.onConnect) {
 
 if (window.api.onDisconnect) {
 	window.api.onDisconnect(() => {
+		hideCancelButton();
 		document.body.classList.add('conn-active');
 		renderConnectionOverlay('Disconnected from server. Reconnecting...');
 		startSubnetScan();
@@ -2722,6 +2745,7 @@ function closeMobileModal() {
 }
 
 window.api.onShellCommandStart(({ command }) => {
+	showCancelButton();
 	const input_elem = document.getElementById('active-input');
 	if (input_elem && input_elem.hasAttribute('contenteditable')) {
 		input_elem.textContent = command;
@@ -2738,6 +2762,7 @@ window.api.onShellCommandStart(({ command }) => {
 });
 
 window.api.onAgentPromptStart(({ prompt, usePro }) => {
+	showCancelButton();
 	const input_elem = document.getElementById('active-input');
 	if (input_elem && input_elem.hasAttribute('contenteditable')) {
 		input_elem.textContent = prompt;
@@ -2772,6 +2797,7 @@ window.api.onShellOutput(data => {
 });
 
 window.api.onShellComplete(info => {
+	hideCancelButton();
 	if (active_output_block) {
 		addOutputPlaceholder(active_output_block);
 	}
@@ -2940,6 +2966,7 @@ window.api.onAgentToolComplete(info => {
 });
 
 window.api.onAgentComplete(() => {
+	hideCancelButton();
 	console.log('AI Response:', {
 		raw: active_assistant_text,
 		parsed: parseThinkingAndContent(active_assistant_text)
