@@ -197,6 +197,9 @@
 						sendMouseScroll: delta => {
 							if (currentSocket) currentSocket.emit('mouse-scroll', delta);
 						},
+						injectText: text => {
+							if (currentSocket) currentSocket.emit('inject-text', { text });
+						},
 						sendCropRegion: region => {
 							if (currentSocket) currentSocket.emit('update-crop-region', { region });
 						},
@@ -312,6 +315,7 @@
 
 			<chat-block from="user" id="active-chat-block">
 				<pre class="input chat-marker" contenteditable="true" id="active-input" spellcheck="false" autocapitalize="none" autocorrect="off"></pre>
+				<button id="send-type-btn" class="send-type-btn"><span class="material-symbols-outlined">send</span></button>
 				<div class="slash-suggestions" id="slash-suggestions"></div>
 			</chat-block>
 		</terminal-chat>

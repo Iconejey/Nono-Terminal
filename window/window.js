@@ -316,6 +316,7 @@ const slash_commands = [
 	{ name: '/help', description: 'Show list of available commands' },
 	{ name: '/host', description: 'Show local server origin to copy/paste in Chrome flags' },
 	{ name: '/open', description: 'Open a file in the inline editor' },
+	{ name: '/type', description: 'Enter typing mode to send text to the remote computer' },
 	{
 		name: '/add-pin',
 		description: 'Pin a directory to bookmarks (defaults to current directory if no path specified)'
@@ -576,6 +577,10 @@ function appendNewPromptBlock(cwd) {
 		old_suggestions.removeAttribute('id');
 		old_suggestions.remove();
 	}
+	const old_send_btn = document.getElementById('send-type-btn');
+	if (old_send_btn) {
+		old_send_btn.removeAttribute('id');
+	}
 	const old_chat_block = document.getElementById('active-chat-block');
 	if (old_chat_block) {
 		old_chat_block.removeAttribute('id');
@@ -595,11 +600,17 @@ function appendNewPromptBlock(cwd) {
 	pre_input.setAttribute('autocapitalize', 'none');
 	pre_input.setAttribute('autocorrect', 'off');
 
+	const send_btn = document.createElement('button');
+	send_btn.className = 'send-type-btn';
+	send_btn.id = 'send-type-btn';
+	send_btn.innerHTML = '<span class="material-symbols-outlined">send</span>';
+
 	const suggestions_div = document.createElement('div');
 	suggestions_div.className = 'slash-suggestions';
 	suggestions_div.id = 'slash-suggestions';
 
 	chat_block.appendChild(pre_input);
+	chat_block.appendChild(send_btn);
 	chat_block.appendChild(suggestions_div);
 	container.appendChild(chat_block);
 
@@ -636,8 +647,29 @@ function triggerConnectionSuggestions() {
 	renderSuggestions(matches);
 }
 
+function handleSendTypeText() {
+	const input_elem = document.getElementById('active-input');
+	if (input_elem) {
+		const text = input_elem.textContent;
+		if (text && window.api.injectText) {
+			window.api.injectText(text);
+			input_elem.textContent = '';
+			placeCaretAtEnd(input_elem);
+		}
+	}
+}
+
 // Handle inputs and keys on active prompt
 function setupInputListeners(input_elem) {
+	const send_btn = input_elem.parentElement ? input_elem.parentElement.querySelector('.send-type-btn') : null;
+	if (send_btn) {
+		send_btn.addEventListener('click', e => {
+			e.preventDefault();
+			e.stopPropagation();
+			handleSendTypeText();
+		});
+	}
+
 	input_elem.addEventListener('focus', () => {
 		if (is_mobile && window.api && !window.api.windowId) {
 			triggerConnectionSuggestions();
@@ -645,7 +677,7 @@ function setupInputListeners(input_elem) {
 	});
 
 	input_elem.addEventListener('click', e => {
-		if (input_elem.classList.contains('multi-line')) {
+		if (input_elem.classList.contains('multi-line') || input_elem.classList.contains('typing-mode')) {
 			const rect = input_elem.getBoundingClientRect();
 			const clickX = e.clientX - rect.left;
 			const style = window.getComputedStyle(input_elem);
@@ -654,6 +686,7 @@ function setupInputListeners(input_elem) {
 				e.preventDefault();
 				e.stopPropagation();
 				input_elem.classList.remove('multi-line');
+				input_elem.classList.remove('typing-mode');
 				placeCaretAtEnd(input_elem);
 				return;
 			}
@@ -664,7 +697,7 @@ function setupInputListeners(input_elem) {
 	});
 
 	input_elem.addEventListener('mousemove', e => {
-		if (input_elem.classList.contains('multi-line')) {
+		if (input_elem.classList.contains('multi-line') || input_elem.classList.contains('typing-mode')) {
 			const rect = input_elem.getBoundingClientRect();
 			const clickX = e.clientX - rect.left;
 			const style = window.getComputedStyle(input_elem);
@@ -814,15 +847,16 @@ function setupInputListeners(input_elem) {
 				}
 			} else if (e.key === 'Enter') {
 				e.preventDefault();
-				if (input_elem.classList.contains('multi-line')) {
+				if (input_elem.classList.contains('multi-line') || input_elem.classList.contains('typing-mode')) {
 					document.execCommand('insertText', false, '\n');
 				} else {
 					submitInput(input_elem.textContent, e.ctrlKey && e.shiftKey);
 				}
 			} else if (e.key === 'Escape') {
-				if (input_elem.classList.contains('multi-line')) {
+				if (input_elem.classList.contains('multi-line') || input_elem.classList.contains('typing-mode')) {
 					e.preventDefault();
 					input_elem.classList.remove('multi-line');
+					input_elem.classList.remove('typing-mode');
 				}
 			}
 		}
@@ -895,6 +929,7 @@ function submitInput(text, usePro = false) {
   /mobile         - Share the current terminal UI with a mobile device via QR code
   /open [path]    - Open a file in the inline editor
   /pins [name]    - Switch to a pinned directory
+  /type           - Enter typing mode to send text to the remote computer
   /unpin [name]   - Unpin a directory
   /shortcuts      - List available keyboard shortcuts with descriptions
   /test-md        - Simulate AI responding with markdown-debug-example.md content
@@ -902,6 +937,15 @@ function submitInput(text, usePro = false) {
 
 			active_block.appendChild(out_pre);
 			appendNewPromptBlock();
+			return;
+		} else if (trimmed.startsWith('/type')) {
+			const activeInput = document.getElementById('active-input');
+			if (activeInput) {
+				activeInput.textContent = '';
+				activeInput.classList.add('typing-mode');
+				activeInput.setAttribute('contenteditable', 'true');
+				placeCaretAtEnd(activeInput);
+			}
 			return;
 		} else if (trimmed.startsWith('/changes')) {
 			openDiffOverlay();

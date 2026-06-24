@@ -165,6 +165,14 @@ function performMouseScroll(dx, dy) {
       });
     });
   });
+function injectTextToSystem(text) {
+  if (!text) return;
+  const ydotool = spawn("ydotool", ["type", "--file", "-"]);
+  ydotool.stdin.write(text);
+  ydotool.stdin.end();
+  ydotool.on("error", (err) => {
+    console.error("Failed to inject text using ydotool:", err);
+  });
 }
 
 function getLocalIpAddress() {
@@ -653,6 +661,10 @@ function startMobileServer() {
 
     socket.on("mouse-scroll", (delta) => {
       performMouseScroll(delta.x, delta.y);
+    });
+
+    socket.on("inject-text", ({ text }) => {
+      injectTextToSystem(text);
     });
 
     socket.on("webrtc-signal", ({ signal }) => {
@@ -2137,6 +2149,10 @@ ipcMain.on("inject-mouse-right-click", (event, { x, y }) => {
 
 ipcMain.on("inject-mouse-scroll", (event, delta) => {
   performMouseScroll(delta.x, delta.y);
+});
+
+ipcMain.on("inject-text", (event, text) => {
+  injectTextToSystem(text);
 });
 
 ipcMain.handle("read-dir", async (event, dir_path) => {

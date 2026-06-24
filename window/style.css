@@ -55,6 +55,7 @@ terminal-chat {
 	padding-bottom: calc(100vh - 2.8rem);
 
 	& chat-block {
+		position: relative;
 		padding: 0.25rem 1.25rem;
 		display: flex;
 		flex-direction: column;
@@ -109,6 +110,11 @@ terminal-chat {
 		&[from='user'] .input.multi-line::before {
 			content: 'chat_bubble';
 			color: var(--purple);
+		}
+
+		&[from='user'] .input.typing-mode::before {
+			content: 'keyboard_alt';
+			color: var(--blue-soft);
 		}
 
 		&[from='assistant'] .input {
@@ -1538,4 +1544,29 @@ body.conn-active terminal-chat {
 	padding: 10px 24px;
 	backdrop-filter: blur(8px);
 	-webkit-backdrop-filter: blur(8px);
+}
+
+/* Typing Mode Send Button */
+.send-type-btn {
+	display: none;
+	position: absolute;
+	right: 1.25rem;
+	top: 50%;
+	transform: translateY(-50%);
+	background: transparent;
+	border: none;
+	color: var(--blue-soft);
+	cursor: pointer;
+	padding: 4px;
+	z-index: 10;
+	align-items: center;
+	justify-content: center;
+}
+
+.send-type-btn:hover {
+	color: var(--blue-light);
+}
+
+#active-chat-block:has(.input.typing-mode) .send-type-btn {
+	display: inline-flex;
 }

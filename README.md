@@ -6,7 +6,6 @@ Nono-Terminal is an Electron-based persistent terminal emulator integrated with 
 
 ## Todo list
 
-- Multi-line input support on mobile devices using "!" prefix and `chat_bubble` icon.
 - Wrap all AI work prints in the same collapsed output block.
 - /context slash command to view the current context window size and contents.
 - Autocompletion for file paths and directory names in the prompt.
@@ -19,7 +18,6 @@ Nono-Terminal is an Electron-based persistent terminal emulator integrated with 
 
 ### Screen sharing mode
 
-- /type slash command to give a text input box to send text to the remote machine.
 - /key-shortcut slash command to show keyboard and modifier keys to make a shortcut key combination to send to the remote machine.
 
 ### IONOS web app
