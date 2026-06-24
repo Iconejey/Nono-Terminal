@@ -22,11 +22,8 @@ app.use(express.static(path.join(__dirname, '../window')));
 
 // Allow routing fallbacks (useful for PWA routing)
 app.use((req, res, next) => {
-	if (req.method === 'GET' && req.accepts('html')) {
-		res.sendFile(path.join(__dirname, '../window/index.html'));
-	} else {
-		next();
-	}
+	if (req.method === 'GET' && req.accepts('html')) res.sendFile(path.join(__dirname, '../window/index.html'));
+	else next();
 });
 
 app.listen(PORT, () => {

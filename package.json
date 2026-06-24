@@ -4,8 +4,8 @@
 	"main": "main.js",
 	"scripts": {
 		"start": "env ELECTRON_ENABLE_LOGGING=1 electron .",
-		"web-app": "node web-app/server.js",
-		"web-app-prod": "pm2 start web-app/server.js --name terminal"
+		"web-app": "node --env-file=.env web-app/server.js",
+		"web-app-prod": "pm2 start web-app/server.js --name terminal -- --env-file=.env"
 	},
 	"dependencies": {
 		"express": "^5.2.1",
