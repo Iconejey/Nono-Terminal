@@ -361,6 +361,24 @@ terminal-chat {
 	}
 }
 
+.output-show-more {
+	display: inline-block;
+	margin-top: 4px;
+	color: var(--blue-soft);
+	font-size: 0.85em;
+	font-style: italic;
+	cursor: pointer;
+	user-select: none;
+	border-bottom: 1px dashed var(--blue-soft);
+	padding-bottom: 1px;
+	transition: color 0.15s, border-color 0.15s;
+
+	&:hover {
+		color: var(--blue-light);
+		border-color: var(--blue-light);
+	}
+}
+
 /* Suggestion box styles */
 .slash-suggestions {
 	display: none;

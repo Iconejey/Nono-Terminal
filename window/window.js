@@ -638,6 +638,9 @@ function initAgentRunUI() {
 	window.scrollTo(0, document.body.scrollHeight);
 }
 
+// Maximum number of lines to show in output before truncating
+const MAX_OUTPUT_LINES = 8;
+
 // Helper to count lines and create a collapse placeholder
 function addOutputPlaceholder(output_elem) {
 	if (!output_elem) return;
@@ -649,23 +652,63 @@ function addOutputPlaceholder(output_elem) {
 	const lines = output_elem.textContent.split('\n');
 	const line_count = lines.length;
 
+	// Truncate long outputs and add a "show full output" link
+	if (line_count > MAX_OUTPUT_LINES) {
+		const truncated = lines.slice(0, MAX_OUTPUT_LINES).join('\n');
+		const full_text = output_elem.textContent;
+		output_elem.textContent = truncated;
+
+		let show_more = output_elem.nextElementSibling;
+		if (!show_more || !show_more.classList.contains('output-show-more')) {
+			show_more = document.createElement('span');
+			show_more.className = 'output-show-more';
+			show_more.textContent = `↓ Show all ${line_count} lines`;
+			output_elem.parentNode.insertBefore(show_more, output_elem.nextSibling);
+			show_more.addEventListener('click', () => {
+				output_elem.textContent = full_text;
+				show_more.remove();
+			});
+		}
+	}
+
 	let placeholder = output_elem.nextElementSibling;
+	if (placeholder && placeholder.classList.contains('output-show-more')) {
+		placeholder = placeholder.nextElementSibling;
+	}
 	if (!placeholder || !placeholder.classList.contains('output-placeholder')) {
 		placeholder = document.createElement('div');
 		placeholder.className = 'output-placeholder';
-		output_elem.parentNode.insertBefore(placeholder, output_elem.nextSibling);
+		const after = output_elem.nextElementSibling;
+		if (after && after.classList.contains('output-show-more')) {
+			after.after(placeholder);
+		} else {
+			output_elem.parentNode.insertBefore(placeholder, output_elem.nextSibling);
+		}
 
 		placeholder.addEventListener('click', () => {
 			if (output_elem.style.display === 'block' || output_elem.style.display === '') {
 				output_elem.style.setProperty('display', 'none', 'important');
+				const sibling = output_elem.nextElementSibling;
+				if (sibling && sibling.classList.contains('output-show-more')) {
+					sibling.style.setProperty('display', 'none', 'important');
+				}
 			} else {
 				output_elem.style.setProperty('display', 'block', 'important');
+				const sibling = output_elem.nextElementSibling;
+				if (sibling && sibling.classList.contains('output-show-more')) {
+					sibling.style.removeProperty('display');
+				}
 			}
 		});
 	}
 
-	placeholder.textContent = `[${line_count} line${line_count === 1 ? '' : 's'} of output]`;
+	const shown = line_count > MAX_OUTPUT_LINES ? MAX_OUTPUT_LINES : line_count;
+	const total = line_count;
+	placeholder.textContent = total > MAX_OUTPUT_LINES
+		? `[${shown} / ${total} lines of output]`
+		: `[${total} line${total === 1 ? '' : 's'} of output]`;
 }
+
 
 // Create a new active prompt block at the bottom
 function appendNewPromptBlock(cwd) {
