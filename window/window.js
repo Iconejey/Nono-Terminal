@@ -545,6 +545,14 @@ function addOutputPlaceholder(output_elem) {
 function appendNewPromptBlock(cwd) {
 	// Remove editing attributes from old active elements
 	const old_input = document.getElementById('active-input');
+	if (old_input && !old_input.textContent.trim()) {
+		// Existing active input is already empty. Do not create a new one.
+		if (!old_input.hasAttribute('contenteditable')) {
+			old_input.setAttribute('contenteditable', 'true');
+		}
+		placeCaretAtEnd(old_input);
+		return;
+	}
 	if (old_input) {
 		old_input.removeAttribute('id');
 		old_input.removeAttribute('contenteditable');
