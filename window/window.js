@@ -76,6 +76,15 @@ function renderConnectionOverlay(statusText, windowsList = []) {
 		};
 
 		item.addEventListener('click', () => {
+			if (is_mobile) {
+				const docEl = document.documentElement;
+				const reqFS = docEl.requestFullscreen || docEl.webkitRequestFullscreen || docEl.mozRequestFullScreen || docEl.msRequestFullscreen;
+				if (reqFS) {
+					reqFS.call(docEl).catch(err => {
+						console.warn("Fullscreen request failed:", err);
+					});
+				}
+			}
 			connectFn();
 		});
 
@@ -448,6 +457,15 @@ function renderSuggestions(filtered) {
     `;
 		item.addEventListener('click', () => {
 			if (cmd.isConnectionItem) {
+				if (is_mobile) {
+					const docEl = document.documentElement;
+					const reqFS = docEl.requestFullscreen || docEl.webkitRequestFullscreen || docEl.mozRequestFullScreen || docEl.msRequestFullscreen;
+					if (reqFS) {
+						reqFS.call(docEl).catch(err => {
+							console.warn("Fullscreen request failed:", err);
+						});
+					}
+				}
 				hideSuggestions();
 				window.api
 					.connectToHost(cmd.ip, cmd.port, cmd.winId)
