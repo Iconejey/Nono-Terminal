@@ -14,14 +14,7 @@ Nono-Terminal is an Electron-based persistent terminal emulator integrated with 
 - Autocompletion for file paths and directory names in the prompt.
 - AI autocomplete suggestions for terminal input and code editing.
 - /files slash command to toggle a file explorer view and navigate the workspace files.
-
-### Additional AI methods to implement:
-
-- `write_file` (replaces edit_file, but allows creating new files, including parent folders recursively)
-- `delete_file`
-- `rename_file`
-- `move_file`
-- `ask_user` (to ask for user input during the reasoning loop with optionnal pre-filled suggestions)
+- Bash commands regex blacklist
 
 ## Architecture & Technical Stack
 
