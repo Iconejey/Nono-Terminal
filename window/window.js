@@ -3404,6 +3404,22 @@ function playFingerprintChime() {
 window.api.onFingerprintPrompt(info => {
 	playFingerprintChime();
 	console.log('[System] Auth/Fingerprint prompt detected:', info.type);
+
+	// Add visual indicator to the terminal output
+	if (active_output_block) {
+		active_output_block.textContent += '\nPlace your finger on the fingerprint reader...\n';
+		window.scrollTo(0, document.body.scrollHeight);
+	} else {
+		const active_block = document.getElementById('active-chat-block');
+		if (active_block) {
+			const out_pre = document.createElement('pre');
+			out_pre.className = 'output system-msg';
+			out_pre.style.color = 'var(--purple)';
+			out_pre.textContent = '\nPlace your finger on the fingerprint reader...\n';
+			active_block.appendChild(out_pre);
+			window.scrollTo(0, document.body.scrollHeight);
+		}
+	}
 });
 
 // Interactive File Explorer & Code Editor Helpers
