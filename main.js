@@ -3261,9 +3261,22 @@ ipcMain.handle('git-commit-history', async (event) => {
 			}
 			const commits = stdout.split('\n').filter(Boolean).map(line => {
 				const [hash, subject, author, date] = line.split('|');
-				return { hash, subject, author, date };
+				return { hash, subject, author, date, unpushed: false };
 			});
-			resolve({ commits });
+
+			exec('git log @{u}.. --format="%h"', { cwd: base }, (cherryErr, cherryStdout) => {
+				if (!cherryErr && cherryStdout) {
+					const unpushedHashes = new Set(
+						cherryStdout.split('\n').filter(Boolean).map(h => h.trim().toLowerCase())
+					);
+					commits.forEach(c => {
+						if (c.hash && unpushedHashes.has(c.hash.toLowerCase())) {
+							c.unpushed = true;
+						}
+					});
+				}
+				resolve({ commits });
+			});
 		});
 	});
 });

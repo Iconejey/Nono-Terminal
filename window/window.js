@@ -4432,7 +4432,7 @@ async function loadDiffOverlayContent(container) {
 
 			const row1 = document.createElement('div');
 			row1.className = 'git-history-row';
-			row1.innerHTML = `<span class="git-commit-hash">${commit.hash}</span><span class="git-commit-meta">${commit.date}</span>`;
+			row1.innerHTML = `<span class="git-commit-hash${commit.unpushed ? ' unpushed' : ''}">${commit.hash}</span><span class="git-commit-meta">${commit.date}</span>`;
 
 			const row2 = document.createElement('div');
 			row2.className = 'git-history-row';

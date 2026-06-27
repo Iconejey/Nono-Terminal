@@ -1873,6 +1873,9 @@ details.agent-run-details {
 	font-weight: bold;
 	font-size: 0.85em;
 }
+.git-commit-hash.unpushed {
+	color: var(--blue-soft);
+}
 .git-commit-meta {
 	color: var(--gray);
 	font-size: 0.8em;
