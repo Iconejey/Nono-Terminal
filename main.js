@@ -3346,3 +3346,26 @@ ${diffToUse}`;
 	});
 });
 
+ipcMain.handle('get-bash-commands', async (event, query) => {
+	if (!query || typeof query !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(query)) {
+		return { commands: [] };
+	}
+	const data = active_windows.get(event.sender.id);
+	const base = data ? data.session.current_cwd : process.cwd();
+	return new Promise(resolve => {
+		const cmd = `bash -c "compgen -c ${query}"`;
+		exec(cmd, { cwd: base }, (err, stdout, stderr) => {
+			if (err) {
+				resolve({ commands: [] });
+				return;
+			}
+			const list = stdout.split('\n')
+				.map(x => x.trim())
+				.filter(x => x && x.startsWith(query));
+			
+			const unique = Array.from(new Set(list)).sort();
+			resolve({ commands: unique.slice(0, 15) });
+		});
+	});
+});
+

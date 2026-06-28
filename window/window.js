@@ -558,6 +558,13 @@ function renderSuggestions(filtered) {
 				input.dispatchEvent(new Event('input'));
 				return;
 			}
+			if (cmd.isBashCommand) {
+				input.textContent = cmd.name + ' ';
+				placeCaretAtEnd(input);
+				hideSuggestions();
+				input.dispatchEvent(new Event('input'));
+				return;
+			}
 			const isCommand = cmd.name.startsWith('/');
 			const prefix = cmd.cmdPrefix || '/open';
 			input.textContent = isCommand ? cmd.name + ' ' : prefix + ' ' + cmd.name + (cmd.isDir ? '/' : ' ');
@@ -1008,6 +1015,8 @@ function setupInputListeners(input_elem) {
 			selected_suggestion_index = 0;
 			renderSuggestions(filtered);
 			open_command_cache = null;
+		} else if (!text.includes(' ') && text.length >= 1) {
+			handleBashCommandSuggestions(text);
 		} else {
 			hideSuggestions();
 			open_command_cache = null;
@@ -1084,6 +1093,14 @@ function setupInputListeners(input_elem) {
 								input_elem.textContent = beforeAt + active_suggestion.name;
 							}
 						}
+						placeCaretAtEnd(input_elem);
+						hideSuggestions();
+						input_elem.dispatchEvent(new Event('input'));
+						return;
+					}
+
+					if (active_suggestion && active_suggestion.isBashCommand) {
+						input_elem.textContent = active_suggestion.name + ' ';
 						placeCaretAtEnd(input_elem);
 						hideSuggestions();
 						input_elem.dispatchEvent(new Event('input'));
@@ -3720,6 +3737,27 @@ function handleKeyShortcutSuggestions(query) {
 
 	selected_suggestion_index = Math.min(selected_suggestion_index, Math.max(0, suggestions.length - 1));
 	renderSuggestions(suggestions);
+}
+
+async function handleBashCommandSuggestions(query) {
+	if (!/^[a-zA-Z0-9_-]+$/.test(query)) {
+		hideSuggestions();
+		return;
+	}
+	const result = await window.api.getBashCommands(query);
+	if (result && result.commands && result.commands.length > 0) {
+		const suggestions = result.commands.map(cmd => {
+			return {
+				name: cmd,
+				description: 'Bash Command',
+				isBashCommand: true
+			};
+		});
+		selected_suggestion_index = Math.min(selected_suggestion_index, Math.max(0, suggestions.length - 1));
+		renderSuggestions(suggestions);
+	} else {
+		hideSuggestions();
+	}
 }
 
 async function handleContextCommand() {

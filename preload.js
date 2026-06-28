@@ -57,6 +57,7 @@ contextBridge.exposeInMainWorld("api", {
   gitCommit: (message) => ipcRenderer.invoke("git-commit", message),
   gitCommitHistory: () => ipcRenderer.invoke("git-commit-history"),
   gitGenerateCommitMsg: () => ipcRenderer.invoke("git-generate-commit-msg"),
+  getBashCommands: (query) => ipcRenderer.invoke("get-bash-commands", query),
   getScreenSourceId: () => ipcRenderer.invoke("get-screen-source-id"),
   sendWebRtcSignalToMobile: (socketId, signal) =>
     ipcRenderer.send("webrtc-signal-to-mobile", socketId, signal),
